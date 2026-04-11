@@ -164,9 +164,17 @@
 
     <script>
       (function() {
-        const splash = document.getElementById('splash-screen');
+        // Obtener splash solo cuando el DOM esté listo (script en <head>)
+        let splash = null;
         let minTimeElapsed = false;
         let appReady = false;
+
+        function getSplash() {
+          if (!splash) {
+            splash = document.getElementById('splash-screen');
+          }
+          return splash;
+        }
 
         // Tiempo mínimo para mostrar el splash (3.5s para disfrutar la animación)
         setTimeout(() => {
@@ -182,15 +190,17 @@
 
         // Fallback: ocultar splash si la app no responde en 8s
         setTimeout(() => {
-          if (!splash.classList.contains('splash-hidden')) {
+          const el = getSplash();
+          if (el && !el.classList.contains('splash-hidden')) {
             console.warn('[Splash] Fallback timeout - ocultando por seguridad');
-            splash.classList.add('splash-hidden');
+            el.classList.add('splash-hidden');
           }
         }, 8000);
 
         function tryHideSplash() {
-          if (minTimeElapsed && splash && !splash.classList.contains('splash-hidden')) {
-            splash.classList.add('splash-hidden');
+          const el = getSplash();
+          if (minTimeElapsed && el && !el.classList.contains('splash-hidden')) {
+            el.classList.add('splash-hidden');
           }
         }
       })();
