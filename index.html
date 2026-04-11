@@ -155,21 +155,45 @@
           <path class="logo-trazo" d="M90 50 A40 40 0 1 1 50 10" />
         </svg>
 
-        <h1 class="logo-texto">AgroGestión</h1>
-        <p class="subtitulo">INTELIGENCIA AGRÍCOLA CIRCULAR</p>
+        <h1 class="logo-texto">Agrícola Marvic 360</h1>
+        <p class="subtitulo">ERP agrícola — gestión integral de Fincas Marvic</p>
       </div>
     </div>
 
     <div id="root"></div>
 
     <script>
-      window.addEventListener('load', () => {
-        // Mantenemos el splash 4.5 segundos para disfrutar de la animación completa
+      (function() {
+        const splash = document.getElementById('splash-screen');
+        let minTimeElapsed = false;
+        let appReady = false;
+
+        // Tiempo mínimo para mostrar el splash (3.5s para disfrutar la animación)
         setTimeout(() => {
-          const splash = document.getElementById('splash-screen');
-          splash.classList.add('splash-hidden');
-        }, 4500);
-      });
+          minTimeElapsed = true;
+          tryHideSplash();
+        }, 3500);
+
+        // Escuchar evento de React cuando el DOM esté hidratado
+        window.addEventListener('marcvic-app-ready', () => {
+          appReady = true;
+          tryHideSplash();
+        });
+
+        // Fallback: ocultar splash si la app no responde en 8s
+        setTimeout(() => {
+          if (!splash.classList.contains('splash-hidden')) {
+            console.warn('[Splash] Fallback timeout - ocultando por seguridad');
+            splash.classList.add('splash-hidden');
+          }
+        }, 8000);
+
+        function tryHideSplash() {
+          if (minTimeElapsed && splash && !splash.classList.contains('splash-hidden')) {
+            splash.classList.add('splash-hidden');
+          }
+        }
+      })();
     </script>
 
     <script type="module" src="/src/main.tsx"></script>

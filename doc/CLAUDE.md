@@ -222,22 +222,6 @@ Estos son la **Fuente Única de Verdad (SSoT)**. Cualquier desviación requiere 
 ---
 Guarda estos 3 archivos y confírmame que todo compila y que el nuevo Buscador y el Modal de Consumo Rápido te funcionan a la perfección. ¡Estaríamos a un solo paso de acabar la aplicación con la "Auditoría"!
 
-<!--
-[PROMPT_SUGGESTION]¡Perfecto! Los cambios se han aplicado sin cortarse y el módulo Materiales funciona al 100%. Sigamos con Auditoría.[/PROMPT_SUGGESTION]
--->
-
-Guarda estos 3 archivos y confírmame que todo compila y que el nuevo Buscador y el Modal de Consumo Rápido te funcionan a la perfección. ¡Estaríamos a un solo paso de acabar la aplicación con la "Auditoría"!
-
-<!--
-[PROMPT_SUGGESTION]¡Perfecto! Los cambios se han aplicado sin cortarse y el módulo Materiales funciona al 100%. Sigamos con Auditoría.[/PROMPT_SUGGESTION]
--->
-
-Guarda estos 3 archivos y confírmame que todo compila y que el nuevo Buscador y el Modal de Consumo Rápido te funcionan a la perfección. ¡Estaríamos a un solo paso de acabar la aplicación con la "Auditoría"!
-
-<!--
-[PROMPT_SUGGESTION]¡Perfecto! Los cambios se han aplicado sin cortarse y el módulo Materiales funciona al 100%. Sigamos con Auditoría.[/PROMPT_SUGGESTION]
--->
-
 
 ## MÓDULOS — ESTADO REAL
 
