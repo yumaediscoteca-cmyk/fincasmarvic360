@@ -66,7 +66,6 @@ export default function Materiales() {
       subtitulo: `Movimientos · ${desde} → ${hasta}`,
       fecha: new Date(),
       filename: `materiales_${desde}_${hasta}.pdf`,
-      accentColor: [20, 184, 166], // teal
       bloques: [
         (ctx) => {
           pdfCorporateSection(ctx, 'Resumen')

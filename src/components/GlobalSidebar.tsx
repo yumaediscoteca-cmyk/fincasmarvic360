@@ -108,13 +108,9 @@ export default function GlobalSidebar() {
       {/* Botón hamburguesa */}
       <button
         onClick={toggle}
-        className={`fixed z-[60] flex items-center justify-center w-10 h-10 rounded-lg
+        className="fixed z-[60] flex items-center justify-center w-10 h-10 rounded-lg
           top-[max(0.75rem,env(safe-area-inset-top))] left-[max(0.75rem,env(safe-area-inset-left))]
-          backdrop-blur-sm border transition-colors duration-200
-          ${isDark
-            ? 'bg-slate-900/95 hover:bg-slate-800 text-slate-200 border-slate-700'
-            : 'bg-slate-100/95 hover:bg-slate-200 text-slate-700 border-slate-300'
-          }`}
+          backdrop-blur-sm border border-border bg-card/95 text-foreground hover:bg-muted transition-colors duration-200"
         aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}
         title={queueTitle || undefined}
       >
@@ -130,8 +126,8 @@ export default function GlobalSidebar() {
                 ? 'bg-amber-500/25 text-amber-200 border border-amber-500/40'
                 : 'bg-amber-100 text-amber-900 border border-amber-400/60'
               : isDark
-                ? 'bg-slate-700/80 text-slate-200 border border-slate-600'
-                : 'bg-slate-200/95 text-slate-700 border border-slate-400/50'
+                ? 'bg-muted text-muted-foreground border border-border'
+                : 'bg-muted text-muted-foreground border border-border'
             }`}
           title={queueTitle}
           aria-live="polite"
@@ -154,28 +150,18 @@ export default function GlobalSidebar() {
         className={`fixed top-0 left-0 h-full w-72 z-[80] flex flex-col
           pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
           transition-transform duration-300 ease-in-out
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-          ${isDark
-            ? 'bg-slate-950 border-r border-slate-700/80'
-            : 'bg-slate-50 border-r border-slate-300'
-          }`}
+          bg-sidebar text-sidebar-foreground border-r border-sidebar-border
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Cabecera */}
-        <div className={`flex items-center justify-between px-4 py-4 border-b shrink-0
-          ${isDark ? 'border-slate-700/80' : 'border-slate-300'}`}
-        >
-          <span className={`text-xs font-semibold tracking-widest uppercase
-            ${isDark ? 'text-slate-300' : 'text-slate-600'}`}
-          >
+        <div className="flex items-center justify-between px-4 py-4 border-b border-sidebar-border shrink-0">
+          <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-sidebar-foreground">
             Agrícola Marvic 360
           </span>
           <button
             onClick={close}
-            className={`flex items-center justify-center w-8 h-8 rounded transition-colors duration-200
-              ${isDark
-                ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
-                : 'hover:bg-slate-200 text-slate-500 hover:text-slate-800'
-              }`}
+            className="flex items-center justify-center w-8 h-8 rounded transition-colors duration-200
+              text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
             aria-label="Cerrar menú"
           >
             <X size={18} />
@@ -214,12 +200,8 @@ export default function GlobalSidebar() {
                     ${!item.activo
                       ? 'opacity-35 cursor-not-allowed border-transparent'
                       : isActive
-                        ? isDark
-                          ? 'bg-slate-800/80 border-transparent'
-                          : 'bg-slate-200/90 border-transparent'
-                        : isDark
-                          ? 'hover:bg-slate-800/50 border-transparent'
-                          : 'hover:bg-slate-100/80 border-transparent'
+                        ? 'bg-sidebar-accent border-transparent'
+                        : 'hover:bg-sidebar-accent/60 border-transparent'
                     }`}
                   style={isActive && item.activo ? { borderLeftColor: item.color } : undefined}
                 >
@@ -228,22 +210,17 @@ export default function GlobalSidebar() {
                     <Icon
                       size={18}
                       style={{ color: item.activo ? item.color : undefined }}
-                      className={!item.activo
-                        ? isDark ? 'text-slate-600' : 'text-slate-400'
-                        : ''
-                      }
+                      className={!item.activo ? 'text-muted-foreground/50' : ''}
                     />
                   </span>
 
                   {/* Label */}
                   <span className={`text-sm font-semibold flex-1 leading-none
                     ${!item.activo
-                      ? isDark ? 'text-slate-600' : 'text-slate-400'
+                      ? 'text-muted-foreground/50'
                       : isActive
-                        ? isDark ? 'text-white' : 'text-slate-900'
-                        : isDark
-                          ? 'text-slate-300 group-hover:text-slate-100'
-                          : 'text-slate-700 group-hover:text-slate-900'
+                        ? 'text-sidebar-foreground'
+                        : 'text-muted-foreground group-hover:text-sidebar-foreground'
                     }`}
                   >
                     {item.label}
@@ -251,11 +228,7 @@ export default function GlobalSidebar() {
 
                   {/* WIP badge */}
                   {!item.activo && (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium
-                      ${isDark
-                        ? 'bg-slate-800 text-slate-500'
-                        : 'bg-slate-200 text-slate-400'
-                      }`}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground"
                     >
                       WIP
                     </span>
@@ -267,12 +240,9 @@ export default function GlobalSidebar() {
                       role="button"
                       aria-label={isExpanded ? 'Colapsar' : 'Expandir'}
                       onClick={(e) => handleChevronClick(e, item)}
-                      className={`shrink-0 flex items-center justify-center w-5 h-5 rounded
+                      className="shrink-0 flex items-center justify-center w-5 h-5 rounded
                         transition-colors duration-150
-                        ${isDark
-                          ? 'hover:bg-slate-700 text-slate-500 hover:text-slate-300'
-                          : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'
-                        }`}
+                        text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
                     >
                       <ChevronRight
                         size={14}
@@ -293,10 +263,7 @@ export default function GlobalSidebar() {
 
                 {/* Hijos (accordion) */}
                 {hasChildren && isExpanded && (
-                  <div
-                    className={`ml-7 border-l
-                      ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`}
-                  >
+                  <div className="ml-7 border-l border-sidebar-border/80">
                     {item.children!.map(child => {
                       const childActive =
                         location.pathname === child.ruta ||
@@ -310,12 +277,8 @@ export default function GlobalSidebar() {
                           className={`w-full flex items-center gap-2.5 pl-3 pr-4 py-2 text-left
                             transition-all duration-200 ease-in-out group
                             ${childActive
-                              ? isDark
-                                ? 'bg-slate-800/60'
-                                : 'bg-slate-200/60'
-                              : isDark
-                                ? 'hover:bg-slate-800/40'
-                                : 'hover:bg-slate-100/80'
+                              ? 'bg-sidebar-accent'
+                              : 'hover:bg-sidebar-accent/50'
                             }`}
                         >
                           <span className="shrink-0 flex items-center justify-center w-4 h-4">
@@ -325,18 +288,14 @@ export default function GlobalSidebar() {
                               className={
                                 childActive
                                   ? ''
-                                  : isDark
-                                    ? 'text-slate-600 group-hover:text-slate-400'
-                                    : 'text-slate-400 group-hover:text-slate-600'
+                                  : 'text-muted-foreground group-hover:text-sidebar-foreground'
                               }
                             />
                           </span>
                           <span className={`text-xs font-medium flex-1
                             ${childActive
-                              ? isDark ? 'text-white' : 'text-slate-900'
-                              : isDark
-                                ? 'text-slate-400 group-hover:text-slate-200'
-                                : 'text-slate-500 group-hover:text-slate-800'
+                              ? 'text-sidebar-foreground'
+                              : 'text-muted-foreground group-hover:text-sidebar-foreground'
                             }`}
                           >
                             {child.label}
@@ -358,12 +317,7 @@ export default function GlobalSidebar() {
         </nav>
 
         {/* Pie */}
-        <div className={`px-4 py-3 border-t text-xs shrink-0
-          ${isDark
-            ? 'border-slate-700/80 text-slate-600'
-            : 'border-slate-300 text-slate-400'
-          }`}
-        >
+        <div className="px-4 py-3 border-t border-sidebar-border text-xs shrink-0 text-muted-foreground">
           v4.0
         </div>
       </div>

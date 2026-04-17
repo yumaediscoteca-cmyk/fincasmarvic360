@@ -6,7 +6,6 @@ import {
   MapPin, ClipboardList, Briefcase, LogOut, ChevronLeft, ChevronRight,
   Calendar, Layers, Leaf,
 } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import {
   useRegistrosTrabajos, useAddTrabajoRegistro,
@@ -30,7 +29,6 @@ import {
   generarPDFCorporativoBase,
   pdfCorporateSection,
   pdfCorporateTable,
-  PDF_COLORS,
   PDF_MARGIN,
 } from '../utils/pdfUtils';
 import { FINCAS_NOMBRES as FINCAS } from '../constants/farms';
@@ -130,9 +128,8 @@ interface PanelDiaProps {
   onPrev: () => void;
   onNext: () => void;
   onCerrar: () => void;
-  isDark: boolean;
 }
-const PanelDia = React.memo(function PanelDia({ fecha, onPrev, onNext, onCerrar, isDark }: PanelDiaProps) {
+const PanelDia = React.memo(function PanelDia({ fecha, onPrev, onNext, onCerrar }: PanelDiaProps) {
   const { data: trabajos = [] } = usePlanificacionDia(fecha);
   const esHoy = fecha === hoy();
 
@@ -142,17 +139,17 @@ const PanelDia = React.memo(function PanelDia({ fecha, onPrev, onNext, onCerrar,
   const arrastrados = trabajos.filter(t => t.fecha_original && t.fecha_original !== t.fecha_planificada).length;
 
   return (
-    <div className={`rounded-xl border p-4 mb-4 ${isDark ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-200'}`}>
+    <div className="rounded-xl border border-border bg-card p-4 mb-4">
       {/* Navegador fecha */}
       <div className="flex items-center justify-between mb-3">
-        <button onClick={onPrev} className="p-1.5 rounded-lg border border-white/10 text-slate-400 hover:text-white transition-colors">
+        <button type="button" onClick={onPrev} className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors">
           <ChevronLeft className="w-4 h-4" />
         </button>
         <div className="text-center">
-          <p className="text-[11px] font-black text-white uppercase tracking-widest">{fmtFecha(fecha)}</p>
-          {esHoy && <p className="text-[9px] text-[#6d9b7d] font-black uppercase tracking-widest">Hoy</p>}
+          <p className="text-[11px] font-black text-foreground uppercase tracking-widest">{fmtFecha(fecha)}</p>
+          {esHoy && <p className="text-[9px] text-primary font-black uppercase tracking-widest">Hoy</p>}
         </div>
-        <button onClick={onNext} className="p-1.5 rounded-lg border border-white/10 text-slate-400 hover:text-white transition-colors">
+        <button type="button" onClick={onNext} className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors">
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
@@ -167,7 +164,7 @@ const PanelDia = React.memo(function PanelDia({ fecha, onPrev, onNext, onCerrar,
         ].map(k => (
           <div key={k.label} className="text-center">
             <p className={`text-xl font-black ${k.color}`}>{k.value}</p>
-            <p className="text-[8px] text-slate-500 uppercase tracking-wider">{k.label}</p>
+            <p className="text-[8px] text-muted-foreground uppercase tracking-wider">{k.label}</p>
           </div>
         ))}
       </div>
@@ -236,7 +233,8 @@ const ModalTrabajoPlan = React.memo(function ModalTrabajoPlan({ fecha, editData,
   const { data: parcelas  = [] } = useParcelas(finca || undefined);
   const { data: personal  = [] } = usePersonal();
   const { data: tractores = [] } = useTractores();
-  const { data: aperos    = [] } = useAperos(tractorId || undefined);
+  /** Todos los aperos activos: filtrar solo por tractor dejaba el desplegable vacío si no hay asignación en BD. */
+  const { data: aperosTodos = [] } = useAperos();
   const { data: tiposCat  = [] } = useTiposTrabajoCatalogoPersonal('');
   const addTipoCat = useAddTipoTrabajoCatalogo();
 
@@ -245,6 +243,17 @@ const ModalTrabajoPlan = React.memo(function ModalTrabajoPlan({ fecha, editData,
 
   const tiposOpciones = [...new Set([...TIPOS_TRABAJO, ...tiposCat.map(t => t.nombre)])];
   const personalActivo = personal.filter(p => p.activo);
+
+  const aperosActivos = useMemo(() => {
+    const list = aperosTodos.filter(a => a.activo);
+    if (!tractorId) return list;
+    return [...list].sort((a, b) => {
+      const ma = a.tractor_id === tractorId ? 0 : 1;
+      const mb = b.tractor_id === tractorId ? 0 : 1;
+      if (ma !== mb) return ma - mb;
+      return (a.tipo || '').localeCompare(b.tipo || '', 'es');
+    });
+  }, [aperosTodos, tractorId]);
 
   const addMaterial = () => {
     if (matNombre.trim()) {
@@ -417,10 +426,21 @@ const ModalTrabajoPlan = React.memo(function ModalTrabajoPlan({ fecha, editData,
                 className={INPUT}
               >
                 <option value="">Sin apero</option>
-                {aperos.filter(a => a.activo).map(a => (
-                  <option key={a.id} value={a.id}>{a.tipo} — {a.descripcion}</option>
-                ))}
+                {aperosActivos.map(a => {
+                  const mat = tractores.find(t => t.id === a.tractor_id)?.matricula;
+                  const hint = a.tractor_id === tractorId ? ' (este tractor)' : mat ? ` (${mat})` : a.tractor_id ? '' : ' (sin tractor)';
+                  return (
+                    <option key={a.id} value={a.id}>
+                      {a.codigo_interno ? `${a.codigo_interno} · ` : ''}{a.tipo}{a.descripcion ? ` — ${a.descripcion}` : ''}{hint}
+                    </option>
+                  );
+                })}
               </select>
+              {aperosActivos.length === 0 && (
+                <p className="text-[9px] text-amber-400/90 mt-1">
+                  No hay aperos activos en Maquinaria. Alta en el módulo Maquinaria → Aperos.
+                </p>
+              )}
               <FormError message={errors.apero_id?.message} />
             </div>
           )}
@@ -428,6 +448,9 @@ const ModalTrabajoPlan = React.memo(function ModalTrabajoPlan({ fecha, editData,
           {/* Materiales */}
           <div>
             <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Materiales previstos</label>
+            <p className="text-[9px] text-slate-500 mb-2 leading-relaxed">
+              Opcional: fitosanitarios, fertilizantes, semillas, carburante u otro consumo previsto. Indica nombre (o producto del inventario) y cantidad; se usarán al cerrar el trabajo.
+            </p>
             <div className="flex gap-2">
               <input type="text" value={matNombre} onChange={e => setMatNombre(e.target.value)}
                 placeholder="Producto…" className="flex-1 bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#6d9b7d]/50 focus:outline-none" />
@@ -599,6 +622,11 @@ const ModalCampana = React.memo(function ModalCampana({ editData, onClose }: { e
   const currentUser = user?.email || 'sistema';
   const [finca,      setFinca]      = useState(editData?.finca ?? '');
   const [parcelId,   setParcelId]   = useState(editData?.parcel_id ?? '');
+  const [superficieM2, setSuperficieM2] = useState(
+    editData?.superficie_m2 != null && !Number.isNaN(editData.superficie_m2)
+      ? String(editData.superficie_m2)
+      : ''
+  );
   const [cultivo,    setCultivo]    = useState(editData?.cultivo ?? '');
   const [fPlantacion,setFPlantacion] = useState(editData?.fecha_prevista_plantacion ?? '');
   const [fCosecha,   setFCosecha]   = useState(editData?.fecha_estimada_cosecha ?? '');
@@ -621,14 +649,24 @@ const ModalCampana = React.memo(function ModalCampana({ editData, onClose }: { e
       d.setDate(d.getDate() + cat.ciclo_dias);
       setFCosecha(d.toISOString().slice(0, 10));
     }
-      }, [fPlantacion, cultivo, cultivos, fCosecha]);
+  }, [fPlantacion, cultivo, cultivos, fCosecha]);
   const handleSubmit = async () => {
     if (!finca.trim() || !cultivo.trim()) return;
+    const supRaw = superficieM2.trim().replace(',', '.');
+    let superficie_m2: number | null = null;
+    if (supRaw !== '') {
+      const n = Number(supRaw);
+      if (!Number.isFinite(n) || n <= 0) {
+        return;
+      }
+      superficie_m2 = n;
+    }
     setSaving(true);
     try {
       const payload = {
         finca,
         parcel_id:                parcelId || null,
+        superficie_m2,
         cultivo,
         fecha_prevista_plantacion: fPlantacion || null,
         fecha_estimada_cosecha:   fCosecha || null,
@@ -646,6 +684,11 @@ const ModalCampana = React.memo(function ModalCampana({ editData, onClose }: { e
   const catCultivos = useCatalogoLocal('trabajos_cultivos', cultivos.map(c => c.nombre_display));
   const cultivosOpciones = catCultivos.opciones;
 
+  const supTrim = superficieM2.trim().replace(',', '.');
+  const supInvalid =
+    supTrim !== '' && (!Number.isFinite(Number(supTrim)) || Number(supTrim) <= 0);
+  const guardarDeshabilitado = !finca.trim() || !cultivo.trim() || saving || supInvalid;
+
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-md shadow-2xl flex flex-col max-h-[92vh]">
@@ -659,12 +702,35 @@ const ModalCampana = React.memo(function ModalCampana({ editData, onClose }: { e
         <div className="p-5 space-y-3 overflow-y-auto flex-1">
           <div>
             <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Finca *</label>
-            <SelectWithOther value={finca} onChange={v => { setFinca(v); setParcelId(''); }} onCreateNew={setFinca} options={FINCAS} placeholder="Seleccionar finca…" />
+            <SelectWithOther value={finca} onChange={v => { setFinca(v); setParcelId(''); setSuperficieM2(''); }} onCreateNew={setFinca} options={FINCAS} placeholder="Seleccionar finca…" />
           </div>
           {finca && parcelas.length > 0 && (
             <div>
-              <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Parcela</label>
-              <SelectWithOther value={parcelId} onChange={setParcelId} onCreateNew={setParcelId} options={parcelas.map(p => p.parcel_id)} placeholder="Finca completa" />
+              <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Sector / parcela</label>
+              <SelectWithOther
+                value={parcelId}
+                onChange={v => { setParcelId(v); setSuperficieM2(''); }}
+                onCreateNew={v => { setParcelId(v); setSuperficieM2(''); }}
+                options={parcelas.map(p => p.parcel_id)}
+                placeholder="Finca completa"
+              />
+              <p className="text-[9px] text-slate-500 mt-1.5 leading-relaxed">
+                Puedes crear <span className="text-slate-400">otra planificación</span> con el mismo sector y otro cultivo o fechas: cada línea es un reparto distinto (hortalizas, maduración o producto diferente).
+              </p>
+            </div>
+          )}
+          {parcelId.trim() !== '' && (
+            <div>
+              <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Superficie en este sector (m²)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={superficieM2}
+                onChange={e => setSuperficieM2(e.target.value)}
+                placeholder="Ej: 2500 o 0,35"
+                className={INPUT}
+              />
+              <p className="text-[9px] text-slate-500 mt-1">Opcional si la línea es «finca completa». Metros cuadrados dedicados a <span className="text-slate-400">este</span> cultivo en el sector elegido.</p>
             </div>
           )}
           <div>
@@ -701,7 +767,9 @@ const ModalCampana = React.memo(function ModalCampana({ editData, onClose }: { e
         </div>
         <div className="px-5 py-3 border-t border-white/10 flex gap-2 shrink-0">
           <button onClick={onClose} className="flex-1 py-2 rounded-lg border border-white/10 text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest">Cancelar</button>
-          <button onClick={handleSubmit} disabled={!finca.trim() || !cultivo.trim() || saving}
+          <button
+            onClick={handleSubmit}
+            disabled={guardarDeshabilitado}
             className="flex-1 py-2 rounded-lg bg-green-500 text-[10px] font-black uppercase tracking-widest text-black disabled:opacity-40"
           >{saving ? 'Guardando…' : isEdit ? 'Actualizar' : 'Guardar'}</button>
         </div>
@@ -724,7 +792,12 @@ const TarjetaCampana = React.memo(function TarjetaCampana({ c, onEdit }: { c: Pl
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[11px] font-bold text-white">{c.cultivo}</p>
-          <p className="text-[9px] text-slate-400">{c.finca}{c.parcel_id ? ` · ${c.parcel_id}` : ''}</p>
+          <p className="text-[9px] text-slate-400">
+            {c.finca}{c.parcel_id ? ` · ${c.parcel_id}` : ''}
+            {c.superficie_m2 != null && Number(c.superficie_m2) > 0
+              ? ` · ${Number(c.superficie_m2).toLocaleString('es-ES', { maximumFractionDigits: 2 })} m²`
+              : ''}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <span className={`border rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-widest ${ESTADO_COLOR[c.estado] ?? 'text-slate-400 border-slate-500'}`}>
@@ -977,9 +1050,6 @@ type FiltroInc = 'todas' | 'urgentes' | 'no_urgentes';
 
 export default function Trabajos() {
   const navigate  = useNavigate();
-  const { theme } = useTheme();
-  const isDark    = theme === 'dark';
-
   const [tab,               setTab]               = useState<TabPrincipal>('diaria');
   const [fechaDia,          setFechaDia]          = useState(hoy());
   const [modalTrabajo,      setModalTrabajo]      = useState(false);
@@ -1056,7 +1126,6 @@ export default function Trabajos() {
       subtitulo: 'Resumen planificación diaria, campaña e incidencias',
       fecha: ref,
       filename: `Planificacion_${fs}.pdf`,
-      accentColor: PDF_COLORS.amber,
       bloques: [
         ctx => {
           pdfCorporateSection(ctx, `Trabajos del día ${fechaDia}`);
@@ -1104,10 +1173,10 @@ export default function Trabajos() {
   }
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#020617] text-white' : 'bg-slate-50 text-slate-900'} flex flex-col`}>
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
 
       {/* HEADER */}
-      <header className={`w-full ${isDark ? 'bg-slate-900/80 border-white/10' : 'bg-white/90 border-slate-200'} border-b pl-14 pr-4 py-2 flex flex-col gap-2 max-md:items-stretch md:flex-row md:items-center md:gap-3 z-50`}>
+      <header className="w-full bg-card/95 backdrop-blur-md border-b border-border pl-14 pr-4 py-2 flex flex-col gap-2 max-md:items-stretch md:flex-row md:items-center md:gap-3 z-50 text-foreground">
         <div className="flex items-center gap-3 min-w-0">
         <button onClick={() => navigate('/dashboard')} className="flex items-center gap-1.5 text-slate-400 hover:text-[#6d9b7d] transition-colors shrink-0">
           <ArrowLeft className="w-4 h-4" />
@@ -1137,9 +1206,9 @@ export default function Trabajos() {
               PDF {pdfMenuOpen ? '▲' : '▼'}
             </button>
             {pdfMenuOpen && (
-              <div className={`absolute right-0 top-full z-[70] mt-1 min-w-[200px] rounded-lg border shadow-lg py-1 ${isDark ? 'border-slate-600 bg-slate-900 text-slate-100 shadow-black/40' : 'border-slate-200 bg-white text-slate-800'}`}>
+              <div className="absolute right-0 top-full z-[70] mt-1 min-w-[200px] rounded-lg border border-border bg-card text-foreground shadow-lg py-1">
                 <button type="button" disabled={generandoPdf} onClick={async () => { setPdfMenuOpen(false); setGenerandoPdf(true); try { await generarPDF(); } finally { setGenerandoPdf(false); } }}
-                  className={`w-full px-3 py-2.5 text-left text-xs font-medium transition-colors disabled:opacity-50 ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-50'}`}
+                  className="w-full px-3 py-2.5 text-left text-xs font-medium transition-colors disabled:opacity-50 hover:bg-muted"
                 >Informe completo</button>
               </div>
             )}
@@ -1156,7 +1225,7 @@ export default function Trabajos() {
             { label: 'Inc. abiertas',    value: incAbiertas,          color: incAbiertas > 0 ? '#ef4444' : '#34d399' },
             { label: 'Urgentes',         value: incUrgentes,          color: incUrgentes > 0 ? '#ef4444' : '#64748b' },
           ].map(k => (
-            <div key={k.label} className={`${isDark ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-200'} border rounded-xl p-3 text-center`}>
+            <div key={k.label} className="bg-card border border-border rounded-xl p-3 text-center">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
               <p className="text-2xl font-black" style={{ color: k.color }}>{k.value}</p>
             </div>
@@ -1164,7 +1233,7 @@ export default function Trabajos() {
         </div>
 
         {/* TABS PRINCIPALES */}
-        <div className={`flex flex-wrap gap-1 mb-5 ${isDark ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-200'} border rounded-xl p-1`}>
+        <div className="flex flex-wrap gap-1 mb-5 bg-card border border-border rounded-xl p-1">
           {([
             { id: 'diaria',      label: 'Planificación diaria', icon: Calendar },
             { id: 'campana',     label: 'Campaña',              icon: Leaf },
@@ -1192,16 +1261,15 @@ export default function Trabajos() {
           <>
             <PanelDia
               fecha={fechaDia}
-            onPrev={handlePrevDia}
-            onNext={handleNextDia}
+              onPrev={handlePrevDia}
+              onNext={handleNextDia}
               onCerrar={handleCerrarJornada}
-              isDark={isDark}
             />
 
-            <hr className="border-white/10 mb-4" />
+            <hr className="border-border mb-4" />
 
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                 {trabajosDia.length} trabajo{trabajosDia.length !== 1 ? 's' : ''} — {fmtFecha(fechaDia)}
               </p>
               <button

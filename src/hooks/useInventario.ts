@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
-import type { TablesInsert } from '@/integrations/supabase/types'
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types'
 import { logLiaEvento } from '@/utils/liaLogger'
 import { toast } from '@/hooks/use-toast'
 import { useCreatedBy } from './useCreatedBy'
@@ -161,6 +161,30 @@ export function useAddRegistro() {
     onError: (error: Error) => {
       console.error('[Hook Error]:', error.message);
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  })
+}
+
+export function useUpdateRegistro() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (
+      args: { id: string; ubicacion_id: string; categoria_id: string } & TablesUpdate<'inventario_registros'>
+    ) => {
+      const { id, ubicacion_id: _u, categoria_id: _c, ...patch } = args
+      const { error } = await supabase.from('inventario_registros').update(patch).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['inventario_registros', vars.ubicacion_id, vars.categoria_id] })
+      qc.invalidateQueries({ queryKey: ['inventario_ultimo_registro', vars.ubicacion_id, vars.categoria_id] })
+      qc.invalidateQueries({ queryKey: ['inventario_resumen_ubicacion', vars.ubicacion_id] })
+      qc.invalidateQueries({ queryKey: ['inventario_total_registros'] })
+      qc.invalidateQueries({ queryKey: ['inventario_conteos_ubicaciones'] })
+    },
+    onError: (error: Error) => {
+      console.error('[Hook Error]:', error.message)
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
     },
   })
 }

@@ -8,7 +8,7 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { generarPDFCorporativoBase, PDF_COLORS, pdfCorporateSection, pdfCorporateTable } from '@/utils/pdfUtils';
+import { generarPDFCorporativoBase, pdfCorporateSection, pdfCorporateTable } from '@/utils/pdfUtils';
 
 // ── Hook de Datos del Dashboard ─────────────────────────────────────────────
 
@@ -235,7 +235,6 @@ export default function Dashboard() {
         subtitulo: `Resumen de actividad - ${new Date().toLocaleDateString('es-ES')}`,
         fecha: new Date(),
         filename: `Informe_Diario_${hoyStr}.pdf`,
-        accentColor: PDF_COLORS.accent,
         bloques: [
           async (ctx) => {
             pdfCorporateSection(ctx, 'Resumen Ejecutivo');
@@ -300,7 +299,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-y-auto bg-slate-50 dark:bg-[#020617] transition-colors pb-10">
+    <div className="min-h-screen flex flex-col relative overflow-y-auto bg-background text-foreground transition-colors pb-10">
       
       {/* Usuario (tema global en AppLayout → GlobalThemeToggle) */}
       {user && (

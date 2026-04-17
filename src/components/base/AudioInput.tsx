@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 interface AudioInputProps {
   value: string
@@ -8,12 +8,15 @@ interface AudioInputProps {
   rows?: number
 }
 
-// Extiende Window para reconocimiento de voz (no estándar en todos los navegadores)
-declare global {
-  interface Window {
-    SpeechRecognition: typeof SpeechRecognition
-    webkitSpeechRecognition: typeof SpeechRecognition
-  }
+type SpeechRecInstance = {
+  lang: string
+  interimResults: boolean
+  maxAlternatives: number
+  start: () => void
+  stop: () => void
+  onresult: ((ev: { results: { 0: { 0: { transcript: string } } } }) => void) | null
+  onerror: ((ev: { error: string }) => void) | null
+  onend: (() => void) | null
 }
 
 export default function AudioInput({
@@ -24,14 +27,24 @@ export default function AudioInput({
   rows = 3,
 }: AudioInputProps) {
   const [recording, setRecording] = useState(false)
-  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const [dictadoError, setDictadoError] = useState<string | null>(null)
+  const recognitionRef = useRef<SpeechRecInstance | null>(null)
+  /** Evita cierre obsoleto: onresult se dispara después y el `value` del render del click estaría desactualizado. */
+  const valueRef = useRef(value)
+  useEffect(() => {
+    valueRef.current = value
+  }, [value])
 
-  const SpeechAPI =
+  const SpeechAPI: (new () => SpeechRecInstance) | null =
     typeof window !== 'undefined'
-      ? window.SpeechRecognition || window.webkitSpeechRecognition
+      ? ((window as unknown as { SpeechRecognition?: new () => SpeechRecInstance; webkitSpeechRecognition?: new () => SpeechRecInstance })
+          .SpeechRecognition ||
+        (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecInstance }).webkitSpeechRecognition ||
+        null)
       : null
 
   function startDictation() {
+    setDictadoError(null)
     if (!SpeechAPI) return
     if (recording) {
       recognitionRef.current?.stop()
@@ -43,13 +56,21 @@ export default function AudioInput({
     rec.interimResults = false
     rec.maxAlternatives = 1
 
-    rec.onresult = (event: SpeechRecognitionEvent) => {
+    rec.onresult = event => {
       const transcript = event.results[0][0].transcript
-      onChange(value ? value + ' ' + transcript : transcript)
+      const prev = valueRef.current
+      onChange(prev ? `${prev} ${transcript}` : transcript)
     }
 
-    rec.onerror = () => {
+    rec.onerror = ev => {
       setRecording(false)
+      const msg =
+        ev.error === 'not-allowed'
+          ? 'Permiso de micrófono denegado (revisa ajustes del navegador).'
+          : ev.error === 'no-speech'
+            ? 'No se detectó voz. Prueba de nuevo.'
+            : `Dictado: ${ev.error}`
+      setDictadoError(msg)
     }
 
     rec.onend = () => {
@@ -57,8 +78,13 @@ export default function AudioInput({
     }
 
     recognitionRef.current = rec
-    rec.start()
-    setRecording(true)
+    try {
+      rec.start()
+      setRecording(true)
+    } catch {
+      setDictadoError('No se pudo iniciar el dictado.')
+      setRecording(false)
+    }
   }
 
   return (
@@ -108,7 +134,10 @@ export default function AudioInput({
       </div>
 
       {recording && (
-        <p className="text-xs text-red-400">Escuchando... (pulsa el icono para detener)</p>
+        <p className="text-xs text-sky-400">Escuchando… (pulsa el micrófono para detener)</p>
+      )}
+      {dictadoError && !recording && (
+        <p className="text-xs text-amber-400">{dictadoError}</p>
       )}
     </div>
   )

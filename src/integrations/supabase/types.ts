@@ -3062,6 +3062,7 @@ export type Database = {
           observaciones: string | null
           parcel_id: string | null
           recursos_estimados: string | null
+          superficie_m2: number | null
         }
         Insert: {
           company_id?: string | null
@@ -3076,6 +3077,7 @@ export type Database = {
           observaciones?: string | null
           parcel_id?: string | null
           recursos_estimados?: string | null
+          superficie_m2?: number | null
         }
         Update: {
           company_id?: string | null
@@ -3090,6 +3092,7 @@ export type Database = {
           observaciones?: string | null
           parcel_id?: string | null
           recursos_estimados?: string | null
+          superficie_m2?: number | null
         }
         Relationships: [
           {

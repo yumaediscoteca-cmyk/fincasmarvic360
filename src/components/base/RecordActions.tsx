@@ -1,5 +1,6 @@
 interface RecordActionsProps {
-  onEdit: () => void
+  /** Si no se pasa, no se muestra el botón Editar (p. ej. historial solo lectura). */
+  onEdit?: () => void
   onDelete: () => void
   confirmMessage?: string
 }
@@ -17,13 +18,15 @@ export default function RecordActions({
 
   return (
     <div className="flex gap-3 justify-end">
-      <button
-        type="button"
-        onClick={onEdit}
-        className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
-      >
-        Editar
-      </button>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
+        >
+          Editar
+        </button>
+      )}
       <button
         type="button"
         onClick={handleDelete}

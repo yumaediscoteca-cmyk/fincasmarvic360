@@ -129,7 +129,7 @@ export default function QRCuadrilla() {
     return (
       <>
       <GlobalThemeToggle />
-      <div className="min-h-screen flex flex-col justify-center bg-[#020617] px-6">
+      <div className="min-h-screen flex flex-col justify-center bg-background px-6">
         <div className="text-center mb-10">
           <Users className="w-12 h-12 text-[#6d9b7d] mx-auto mb-4" />
           <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">
@@ -170,7 +170,7 @@ export default function QRCuadrilla() {
     return (
       <>
       <GlobalThemeToggle />
-      <div className="min-h-screen flex flex-col justify-center bg-[#020617] px-6">
+      <div className="min-h-screen flex flex-col justify-center bg-background px-6">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <div className="relative">
@@ -252,7 +252,7 @@ export default function QRCuadrilla() {
   return (
     <>
     <GlobalThemeToggle />
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#020617] text-center px-6">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground text-center px-6">
       <CheckCircle2 className="w-16 h-16 text-green-400 mb-4" />
       <p className="text-lg font-black text-green-400 uppercase tracking-widest">
         Salida registrada

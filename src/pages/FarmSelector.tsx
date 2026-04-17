@@ -17,7 +17,7 @@ export default function FarmSelector() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-white flex flex-col transition-colors duration-300">
+    <div className="min-h-screen bg-background text-foreground flex flex-col transition-colors duration-300">
 
       {/* BARRA SUPERIOR */}
       <header className="w-full bg-white/90 dark:bg-slate-900/80 border-b border-slate-200 dark:border-white/10 pl-14 pr-6 py-3 flex items-center gap-4">

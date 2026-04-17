@@ -68,7 +68,6 @@ export default function Auditoria() {
       subtitulo: `Registro de actividad · ${desde} → ${hasta}`,
       fecha: new Date(),
       filename: `auditoria_${desde}_${hasta}.pdf`,
-      accentColor: [245, 158, 11], // amber
       bloques: [
         (ctx) => {
           pdfCorporateSection(ctx, 'Resumen')

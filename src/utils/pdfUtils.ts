@@ -1,6 +1,9 @@
 /**
  * pdfUtils.ts — Utilidades PDF compartidas para todos los módulos de Agrícola Marvic 360
  *
+ * Identidad visual unificada (tarjeta corporativa): verde bosque + beige piedra.
+ * Carta: Montserrat (Regular/Bold) desde /fonts/*.ttf si cargan; si no, Helvetica.
+ *
  * Patrón de uso:
  *   const ctx = createPdfContext(doc)
  *   ctx.addPageHeader('MÓDULO', 'Subtítulo opcional')
@@ -20,25 +23,178 @@ export const PDF_PAGE_H       = 297
 export const PDF_TEXT_W       = PDF_PAGE_W - 2 * PDF_MARGIN
 export const PDF_BOTTOM_LIMIT = 280
 
+/** Marca Agrícola Marvic (tarjeta de visita: #1b3022, #d8d3c9). */
+export const PDF_BRAND = {
+  green:   [27, 48, 34] as [number, number, number],
+  beige:   [216, 211, 201] as [number, number, number],
+  /** Filas alternas (beige muy suave sobre blanco). */
+  rowAlt:  [236, 232, 226] as [number, number, number],
+  /** Texto secundario sobre beige / cuerpo. */
+  muted:   [60, 75, 65] as [number, number, number],
+  white:   [255, 255, 255] as [number, number, number],
+}
+
+/** Altura franja cabecera + ancho panel verde (proporción tarjeta ~36%). */
+const HEADER_BAND_H    = 36
+const HEADER_BRAND_W_MM = 76
+
 /** Límite vertical del contenido cuando el pie corporativo está activo (evita solaparse). */
-const CORPORATE_CONTENT_BOTTOM = 268
+const CORPORATE_CONTENT_BOTTOM = 266
 
-const CORP_SECTION_BG: [number, number, number] = [30, 41, 59]
+const CORP_SECTION_BG: [number, number, number] = PDF_BRAND.green
 const CORP_ROW_A: [number, number, number] = [255, 255, 255]
-const CORP_ROW_B: [number, number, number] = [248, 250, 252]
+const CORP_ROW_B: [number, number, number] = PDF_BRAND.rowAlt
 
-// Colores corporativos por módulo
+/**
+ * Acento por defecto = verde marca (los PDF corporativos ya no usan colores distintos por módulo
+ * en cabeceras/tablas; se mantiene el mapa para código legado que aún importe estas claves).
+ */
 export const PDF_COLORS = {
-  accent:    [14,  94,  131] as [number, number, number],   // azul Marvic
-  orange:    [251, 146, 60]  as [number, number, number],   // maquinaria
-  violet:    [167, 139, 250] as [number, number, number],   // logística
-  amber:     [245, 158, 11]  as [number, number, number],   // trabajos
-  green:     [74,  222, 128] as [number, number, number],   // parte diario
-  fuchsia:   [232, 121, 249] as [number, number, number],   // personal
-  gray:      [100, 116, 139] as [number, number, number],
-  lightGray: [160, 160, 160] as [number, number, number],
-  white:     [255, 255, 255] as [number, number, number],
-  dark:      [40,  40,  40]  as [number, number, number],
+  accent:    PDF_BRAND.green,
+  orange:    PDF_BRAND.green,
+  violet:    PDF_BRAND.green,
+  amber:     PDF_BRAND.green,
+  green:     PDF_BRAND.green,
+  fuchsia:   PDF_BRAND.green,
+  gray:      PDF_BRAND.muted,
+  lightGray: [140, 130, 120] as [number, number, number],
+  white:     PDF_BRAND.white,
+  dark:      PDF_BRAND.green,
+}
+
+export interface MarvicLetterheadConfig {
+  titulo: string
+  subtitulo: string
+  /** Fecha ya formateada (ej. locale largo o formato ejecutivo del Parte Diario). */
+  fechaTexto: string
+}
+
+/** Nombre interno jsPDF para la familia Montserrat (cartas / cabecera). */
+export const PDF_LETTERHEAD_FONT = 'Montserrat'
+
+let montserratTtfCache: { regular: string; bold: string } | null = null
+
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
+async function fetchMontserratTtfBase64(): Promise<{ regular: string; bold: string } | null> {
+  if (montserratTtfCache) return montserratTtfCache
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  try {
+    const [resR, resB] = await Promise.all([
+      fetch(`${origin}/fonts/Montserrat-Regular.ttf`),
+      fetch(`${origin}/fonts/Montserrat-Bold.ttf`),
+    ])
+    if (!resR.ok || !resB.ok) return null
+    const [bufR, bufB] = await Promise.all([resR.arrayBuffer(), resB.arrayBuffer()])
+    if (!bufR.byteLength || !bufB.byteLength) return null
+    montserratTtfCache = {
+      regular: arrayBufferToBase64(bufR),
+      bold: arrayBufferToBase64(bufB),
+    }
+    return montserratTtfCache
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Registra Montserrat (normal + bold) en el VFS del documento. Idempotente por instancia de doc.
+ * @returns true si la familia quedó disponible como `PDF_LETTERHEAD_FONT`
+ */
+export async function registerMontserratLetterheadFonts(doc: jsPDF): Promise<boolean> {
+  const fonts = doc.getFontList()
+  if (fonts[PDF_LETTERHEAD_FONT]) return true
+
+  const data = await fetchMontserratTtfBase64()
+  if (!data) return false
+
+  try {
+    doc.addFileToVFS('Montserrat-Regular.ttf', data.regular)
+    doc.addFont('Montserrat-Regular.ttf', PDF_LETTERHEAD_FONT, 'normal')
+    doc.addFileToVFS('Montserrat-Bold.ttf', data.bold)
+    doc.addFont('Montserrat-Bold.ttf', PDF_LETTERHEAD_FONT, 'bold')
+    return true
+  } catch {
+    return false
+  }
+}
+
+function setLetterheadFont(doc: jsPDF, style: 'normal' | 'bold') {
+  const fonts = doc.getFontList()
+  if (fonts[PDF_LETTERHEAD_FONT]) {
+    doc.setFont(PDF_LETTERHEAD_FONT, style)
+  } else {
+    doc.setFont('helvetica', style === 'bold' ? 'bold' : 'normal')
+  }
+}
+
+/**
+ * Cabecera de dos franjas: panel verde (logo + AGRÍCOLA / MARVIC) y panel beige (título del documento).
+ * Devuelve la posición Y inicial del cuerpo (bajo la línea divisoria).
+ */
+export function paintMarvicLetterhead(
+  doc: jsPDF,
+  logoData: PdfImage | null,
+  cfg: MarvicLetterheadConfig,
+): number {
+  const M = PDF_MARGIN
+  const PAGE_W = PDF_PAGE_W
+
+  doc.setFillColor(...PDF_BRAND.white)
+  doc.rect(0, 0, PAGE_W, HEADER_BAND_H + 6, 'F')
+
+  doc.setFillColor(...PDF_BRAND.green)
+  doc.rect(0, 0, HEADER_BRAND_W_MM, HEADER_BAND_H, 'F')
+  doc.setFillColor(...PDF_BRAND.beige)
+  doc.rect(HEADER_BRAND_W_MM, 0, PAGE_W - HEADER_BRAND_W_MM, HEADER_BAND_H, 'F')
+
+  let brandTextY = 8
+  if (logoData) {
+    const logoW = 24
+    const logoH = Math.min(logoW * (logoData.natH / logoData.natW), 17)
+    doc.addImage(logoData.b64, 'JPEG', M, 6, logoW, logoH)
+    brandTextY = 6 + logoH + 3
+  }
+  setLetterheadFont(doc, 'normal')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...PDF_BRAND.white)
+  doc.text('AGRÍCOLA', M, Math.max(brandTextY, 19))
+  setLetterheadFont(doc, 'bold')
+  doc.setFontSize(10)
+  doc.text('MARVIC', M, Math.max(brandTextY + 4, 24))
+
+  const right = PAGE_W - M
+  setLetterheadFont(doc, 'bold')
+  doc.setFontSize(11.5)
+  doc.setTextColor(...PDF_BRAND.green)
+  doc.text(cfg.titulo.toUpperCase(), right, 12, { align: 'right' })
+  setLetterheadFont(doc, 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(...PDF_BRAND.muted)
+  const subLines = doc.splitTextToSize(cfg.subtitulo, PAGE_W - HEADER_BRAND_W_MM - M - 8) as string[]
+  let subY = 18
+  subLines.forEach(line => {
+    doc.text(line, right, subY, { align: 'right' })
+    subY += 4
+  })
+  setLetterheadFont(doc, 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(...PDF_BRAND.green)
+  doc.text(cfg.fechaTexto, right, Math.max(subY + 1, 28), { align: 'right' })
+
+  const yLine = HEADER_BAND_H + 1
+  doc.setDrawColor(...PDF_BRAND.green)
+  doc.setLineWidth(0.45)
+  doc.line(M, yLine, PAGE_W - M, yLine)
+  doc.setFont('helvetica', 'normal')
+  return yLine + 5
 }
 
 // ── Carga de imagen desde URL → base64 ──────────────────────────────────────
@@ -117,7 +273,7 @@ export interface PdfContext {
 export function createPdfContext(
   doc: jsPDF,
   logoData: PdfImage | null = null,
-  accentColor: [number, number, number] = PDF_COLORS.accent
+  accentColor: [number, number, number] = PDF_BRAND.green
 ): PdfContext {
   const M  = PDF_MARGIN
   const TW = PDF_TEXT_W
@@ -130,37 +286,16 @@ export function createPdfContext(
 
   function paintCorporateHeaderInternal() {
     if (!corporateCfg) return
-    doc.setFillColor(255, 255, 255)
+    doc.setFillColor(...PDF_BRAND.white)
     doc.rect(0, 0, PDF_PAGE_W, PDF_PAGE_H, 'F')
-    const top = M
-    let bandBottom = top
-    if (logoData) {
-      const logoW = 45
-      const logoH = Math.min(logoW * (logoData.natH / logoData.natW), 22)
-      doc.setFillColor(255, 255, 255)
-      doc.rect(M - 0.5, top - 0.5, logoW + 1, logoH + 1, 'F')
-      doc.addImage(logoData.b64, 'JPEG', M, top, logoW, logoH)
-      bandBottom = Math.max(bandBottom, top + logoH)
-    }
-    const right = PDF_PAGE_W - M
     const fechaStr = corporateCfg.fecha.toLocaleDateString('es-ES', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     })
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(14)
-    doc.setTextColor(0, 0, 0)
-    doc.text(corporateCfg.titulo.toUpperCase(), right, top + 4, { align: 'right' })
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    doc.setTextColor(100, 116, 139)
-    doc.text(corporateCfg.subtitulo, right, top + 9, { align: 'right' })
-    doc.text(fechaStr, right, top + 14, { align: 'right' })
-    bandBottom = Math.max(bandBottom, top + 16)
-    y = bandBottom + 2
-    doc.setDrawColor(200, 200, 200)
-    doc.setLineWidth(0.35)
-    doc.line(M, y, PDF_PAGE_W - M, y)
-    y += 5
+    y = paintMarvicLetterhead(doc, logoData, {
+      titulo: corporateCfg.titulo,
+      subtitulo: corporateCfg.subtitulo,
+      fechaTexto: fechaStr,
+    })
   }
 
   const ctx: PdfContext = {
@@ -190,7 +325,7 @@ export function createPdfContext(
 
     separator() {
       if (y + 5 > contentBottomLimit()) { doc.addPage(); y = M; if (corporateCfg) paintCorporateHeaderInternal() }
-      doc.setDrawColor(200, 200, 200)
+      doc.setDrawColor(...PDF_BRAND.green)
       doc.setLineWidth(0.2)
       doc.line(M, y, PDF_PAGE_W - M, y)
       y += 4
@@ -201,12 +336,12 @@ export function createPdfContext(
         doc.addImage(logoData.b64, 'JPEG', M, y, 38, 10)
       }
       doc.setFontSize(8)
-      doc.setTextColor(...PDF_COLORS.gray)
-      doc.text('AGRÍCOLA MARVIC 360', PDF_PAGE_W - M, y + 4, { align: 'right' })
+      doc.setTextColor(...PDF_BRAND.muted)
+      doc.text('AGRÍCOLA MARVIC', PDF_PAGE_W - M, y + 4, { align: 'right' })
       if (modulo) {
         doc.setFontSize(9)
         doc.setFont('helvetica', 'bold')
-        doc.setTextColor(...accentColor)
+        doc.setTextColor(...PDF_BRAND.green)
         doc.text(
           subtitulo ? `${modulo} — ${subtitulo}` : modulo,
           PDF_PAGE_W - M, y + 8.5, { align: 'right' }
@@ -214,7 +349,7 @@ export function createPdfContext(
         doc.setFont('helvetica', 'normal')
       }
       y += 14
-      doc.setDrawColor(...accentColor)
+      doc.setDrawColor(...PDF_BRAND.green)
       doc.setLineWidth(0.4)
       doc.line(M, y, PDF_PAGE_W - M, y)
       y += 5
@@ -225,7 +360,7 @@ export function createPdfContext(
       ctx.checkPage(7)
       doc.setFontSize(size)
       doc.setFont('helvetica', 'normal')
-      doc.setTextColor(...PDF_COLORS.dark)
+      doc.setTextColor(...PDF_BRAND.green)
       const txt = `${label}: ${value}`
       const lines = doc.splitTextToSize(txt, TW) as string[]
       lines.forEach((line: string) => {
@@ -240,7 +375,7 @@ export function createPdfContext(
       ctx.checkPage(6)
       doc.setFontSize(size)
       doc.setFont('helvetica', 'bold')
-      doc.setTextColor(...PDF_COLORS.gray)
+      doc.setTextColor(...PDF_BRAND.green)
       doc.text(label, M, y)
       doc.setFont('helvetica', 'normal')
       y += size * 0.44 + 0.5
@@ -248,15 +383,15 @@ export function createPdfContext(
 
     entryHeader(letra, titulo, hora) {
       ctx.checkPage(14)
-      doc.setFillColor(...accentColor)
+      doc.setFillColor(...PDF_BRAND.green)
       doc.rect(M, y, 2, 9, 'F')
       doc.setFontSize(10)
       doc.setFont('helvetica', 'bold')
-      doc.setTextColor(...accentColor)
+      doc.setTextColor(...PDF_BRAND.green)
       doc.text(`[${letra}]  ${titulo}`, M + 4, y + 6)
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(8)
-      doc.setTextColor(...PDF_COLORS.gray)
+      doc.setTextColor(...PDF_BRAND.muted)
       doc.text(hora, PDF_PAGE_W - M, y + 6, { align: 'right' })
       y += 12
     },
@@ -278,17 +413,17 @@ export function createPdfContext(
     kpiRow(items) {
       ctx.checkPage(18)
       const colW = TW / items.length
-      doc.setFillColor(15, 23, 42)
+      doc.setFillColor(...PDF_BRAND.green)
       doc.roundedRect(M, y, TW, 14, 2, 2, 'F')
       items.forEach((item, i) => {
         const cx = M + colW * i + colW / 2
         doc.setFontSize(7)
         doc.setFont('helvetica', 'normal')
-        doc.setTextColor(...PDF_COLORS.gray)
+        doc.setTextColor(230, 235, 232)
         doc.text(item.label.toUpperCase(), cx, y + 5, { align: 'center' })
         doc.setFontSize(10)
         doc.setFont('helvetica', 'bold')
-        doc.setTextColor(...accentColor)
+        doc.setTextColor(...PDF_BRAND.white)
         doc.text(String(item.value), cx, y + 11, { align: 'center' })
       })
       y += 18
@@ -312,9 +447,10 @@ export function createPdfContext(
 // ── Función de inicio estándar (crea doc + carga logo) ───────────────────────
 
 export async function initPdf(
-  accentColor: [number, number, number] = PDF_COLORS.accent
+  accentColor: [number, number, number] = PDF_BRAND.green
 ): Promise<{ doc: jsPDF; ctx: PdfContext }> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  await registerMontserratLetterheadFonts(doc)
   const logoData = await loadPdfImage(window.location.origin + '/MARVIC_logo.png')
   const ctx = createPdfContext(doc, logoData, accentColor)
   return { doc, ctx }
@@ -330,6 +466,7 @@ export interface GenerarPDFCorporativoBaseConfig {
   fecha: Date
   filename: string
   bloques: CorporatePdfBlock[]
+  /** @deprecated Ignorado: todo PDF usa el verde/beige de marca. */
   accentColor?: [number, number, number]
 }
 
@@ -344,12 +481,12 @@ export function applyCorporateFootersAllPages(doc: jsPDF, fecha: Date): void {
   })
   for (let i = 1; i <= total; i++) {
     doc.setPage(i)
-    doc.setDrawColor(200, 200, 200)
-    doc.setLineWidth(0.25)
+    doc.setDrawColor(...PDF_BRAND.green)
+    doc.setLineWidth(0.3)
     doc.line(M, CORP_FOOTER_LINE_Y, PDF_PAGE_W - M, CORP_FOOTER_LINE_Y)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
-    doc.setTextColor(71, 85, 105)
+    doc.setTextColor(...PDF_BRAND.green)
     doc.text(
       `Firmado: JuanPe — Dirección Técnica de Campo  |  Agrícola Marvic 360  |  ${pieFecha}`,
       M,
@@ -359,7 +496,7 @@ export function applyCorporateFootersAllPages(doc: jsPDF, fecha: Date): void {
   }
 }
 
-/** Barra de sección #1e293b, texto blanco mayúsculas. */
+/** Barra de sección verde marca, texto blanco mayúsculas. */
 export function pdfCorporateSection(ctx: PdfContext, titulo: string): void {
   const doc = ctx.doc
   const M = PDF_MARGIN
@@ -373,7 +510,7 @@ export function pdfCorporateSection(ctx: PdfContext, titulo: string): void {
   doc.setFontSize(9)
   doc.text(titulo.toUpperCase(), M + 2, y0 + 4.8)
   ctx.y = y0 + 9
-  doc.setTextColor(0, 0, 0)
+  doc.setTextColor(...PDF_BRAND.green)
 }
 
 /**
@@ -425,7 +562,7 @@ export function pdfCorporateTable(
     doc.rect(M, y - 0.5, TW, rowH, 'F')
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
-    doc.setTextColor(0, 0, 0)
+    doc.setTextColor(...PDF_BRAND.green)
     linesPerCell.forEach((lines, ci) => {
       let yy = y + 3.5
       lines.forEach(line => {
@@ -446,8 +583,8 @@ export function pdfCorporateTable(
 export async function generarPDFCorporativoBase(
   config: GenerarPDFCorporativoBaseConfig,
 ): Promise<void> {
-  const { titulo, subtitulo, fecha, filename, bloques, accentColor } = config
-  const { doc, ctx } = await initPdf(accentColor ?? PDF_COLORS.accent)
+  const { titulo, subtitulo, fecha, filename, bloques } = config
+  const { doc, ctx } = await initPdf(PDF_BRAND.green)
   ctx.setCorporateMode({ titulo, subtitulo, fecha })
   ctx.addCorporatePageHeader()
   for (const block of bloques) {

@@ -8,10 +8,17 @@ import {
   Trash2, Cog, ChevronDown,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import jsPDF from 'jspdf'
+import {
+  generarPDFCorporativoBase,
+  pdfCorporateSection,
+  loadPdfImage,
+  PDF_BRAND,
+  PDF_MARGIN,
+  PDF_TEXT_W,
+} from '@/utils/pdfUtils'
 import {
   useUbicaciones, useCategorias, useUltimoRegistro,
-  useRegistros, useAddRegistro,
+  useRegistros, useAddRegistro, useUpdateRegistro,
   useProductosCatalogo, useAddProductoCatalogo, useAddMovimiento,
   useActivosEnUbicacionVista, useInventarioUbicacionActivosAll,
   useAperosTablaInventario, useAssignActivoUbicacion, useRemoveActivoUbicacion,
@@ -71,6 +78,7 @@ export default function InventarioUbicacion() {
   const [activeCatId, setActiveCatId] = useState<string | null>(null)
   const [panelView,   setPanelView]   = useState<PanelView>('estado')
   const [showModal,   setShowModal]   = useState(false)
+  const [editRegistro, setEditRegistro] = useState<RegistroConCategoria | null>(null)
   const [now, setNow]                 = useState(new Date())
 
   // ── Form state ───────────────────────────────────────────────
@@ -138,6 +146,7 @@ export default function InventarioUbicacion() {
   const { data: registros   = [] }  = useRegistros(ubicacionId ?? null, activeCatId)
   const { data: productos   = [] }  = useProductosCatalogo(activeCatId)
   const addRegistro                 = useAddRegistro()
+  const updateRegistro              = useUpdateRegistro()
   const addProductoCatalogo         = useAddProductoCatalogo()
   const addMovimiento               = useAddMovimiento()
   const { data: activosVista = [] } = useActivosEnUbicacionVista(ubicacionId ?? null)
@@ -165,6 +174,7 @@ export default function InventarioUbicacion() {
       setActiveCatId(id)
       setPanelView('estado')
       setShowModal(false)
+      setEditRegistro(null)
     }
   }
 
@@ -175,6 +185,7 @@ export default function InventarioUbicacion() {
   }
 
   function openModal() {
+    setEditRegistro(null)
     setCantidad('')
     setUnidad('kg')
     setDescripcion('')
@@ -188,6 +199,24 @@ export default function InventarioUbicacion() {
     setFotoFile2(null)
     setPreview2(null)
     setResponsable('')
+    setShowModal(true)
+  }
+
+  function openModalEdit(r: RegistroConCategoria) {
+    setEditRegistro(r)
+    setCantidad(String(r.cantidad))
+    setUnidad(r.unidad)
+    setDescripcion(r.descripcion ?? '')
+    setNotas(r.notas ?? '')
+    setFotoFile(null)
+    setPreview(r.foto_url)
+    setFotoFile2(null)
+    setPreview2(r.foto_url_2 ?? null)
+    setProductoId(r.producto_id ?? '')
+    setProductoNombre('')
+    setPrecioUnitario(r.precio_unitario != null ? String(r.precio_unitario) : '')
+    setResponsable(r.created_by ?? '')
+    setSubmitError(null)
     setShowModal(true)
   }
 
@@ -295,40 +324,60 @@ export default function InventarioUbicacion() {
         resolvedProductoId = productoId
       }
 
-      // 2. Subir foto 1
+      // 2. Fotos (nuevo archivo, conservar existentes o borrar si el usuario quitó la vista previa)
       let foto_url: string | null = null
       if (fotoFile) {
         const ext  = fotoFile.name.split('.').pop() ?? 'jpg'
         const path = `${ubicacionId}/${activeCatId}/${Date.now()}.${ext}`
         foto_url = await uploadImage(fotoFile, 'inventario-images', path, false)
         if (!foto_url) throw new Error('Error subiendo foto 1')
+      } else if (editRegistro) {
+        foto_url = preview ? editRegistro.foto_url ?? null : null
       }
 
-      // 3. Subir foto 2 (lote/código de barras, solo fitos)
       let foto_url_2: string | null = null
       if (fotoFile2) {
         const ext  = fotoFile2.name.split('.').pop() ?? 'jpg'
         const path = `${ubicacionId}/${activeCatId}/lote_${Date.now()}.${ext}`
         foto_url_2 = await uploadImage(fotoFile2, 'inventario-images', path, false)
         if (!foto_url_2) throw new Error('Error subiendo foto 2')
+      } else if (editRegistro) {
+        foto_url_2 = preview2 ? editRegistro.foto_url_2 ?? null : null
       }
 
-      // 4. Insertar registro
-      await addRegistro.mutateAsync({
-        ubicacion_id:    ubicacionId,
-        categoria_id:    activeCatId,
-        cantidad:        parseFloat(cantidad),
-        unidad,
-        descripcion:     descripcion     || null,
-        notas:           notas           || null,
-        foto_url,
-        foto_url_2,
-        precio_unitario: precioUnitario ? parseFloat(precioUnitario) : null,
-        producto_id:     resolvedProductoId,
-        created_by:      responsable     || null,
-      })
+      if (editRegistro) {
+        await updateRegistro.mutateAsync({
+          id: editRegistro.id,
+          ubicacion_id: ubicacionId,
+          categoria_id: activeCatId,
+          cantidad: parseFloat(cantidad),
+          unidad,
+          descripcion: descripcion || null,
+          notas: notas || null,
+          foto_url,
+          foto_url_2,
+          precio_unitario: precioUnitario ? parseFloat(precioUnitario) : null,
+          producto_id: resolvedProductoId,
+          created_by: responsable || null,
+        })
+      } else {
+        await addRegistro.mutateAsync({
+          ubicacion_id:    ubicacionId,
+          categoria_id:    activeCatId,
+          cantidad:        parseFloat(cantidad),
+          unidad,
+          descripcion:     descripcion     || null,
+          notas:           notas           || null,
+          foto_url,
+          foto_url_2,
+          precio_unitario: precioUnitario ? parseFloat(precioUnitario) : null,
+          producto_id:     resolvedProductoId,
+          created_by:      responsable     || null,
+        })
+      }
 
       setShowModal(false)
+      setEditRegistro(null)
       setPanelView('estado')
 
     } catch (err: unknown) {
@@ -492,158 +541,107 @@ export default function InventarioUbicacion() {
     setPdfError(null)
 
     try {
-      const doc    = new jsPDF()
-      const margin = 15
-      const maxW   = 180
-      let y        = 25
-      const lh     = 6
-
-      async function loadImage(url: string): Promise<{ data: string; w: number; h: number } | null> {
-        try {
-          const res  = await fetch(url)
-          const blob = await res.blob()
-          return await new Promise(resolve => {
-            const img = new Image()
-            img.crossOrigin = 'anonymous'
-            img.onload = () => {
-              const canvas = document.createElement('canvas')
-              canvas.width  = img.naturalWidth
-              canvas.height = img.naturalHeight
-              const ctx = canvas.getContext('2d')!
-              ctx.fillStyle = '#ffffff'
-              ctx.fillRect(0, 0, canvas.width, canvas.height)
-              ctx.drawImage(img, 0, 0)
-              const data = canvas.toDataURL('image/jpeg', 0.8)
-              URL.revokeObjectURL(img.src)
-              resolve({ data, w: img.naturalWidth, h: img.naturalHeight })
-            }
-            img.onerror = () => resolve(null)
-            img.src = URL.createObjectURL(blob)
-          })
-        } catch {
-          return null
-        }
-      }
-
-      // Cargar logo una sola vez
-      const logo = await loadImage('/MARVIC_logo.png')
-
-      function addLogoToPage() {
-        if (!logo) return
-        const lw = 38
-        const lh2 = lw * (logo.h / logo.w)
-        doc.addImage(logo.data, 'JPEG', 210 - margin - lw, 6, lw, lh2)
-      }
-
-      function checkPage() {
-        if (y > 272) {
-          doc.addPage()
-          addLogoToPage()
-          y = 25
-        }
-      }
-
-      function writeLine(text: string, bold = false, size = 10) {
-        doc.setFontSize(size)
-        doc.setFont('helvetica', bold ? 'bold' : 'normal')
-        const lines = doc.splitTextToSize(text, maxW) as string[]
-        for (const l of lines) {
-          checkPage()
-          doc.text(l, margin, y)
-          y += lh
-        }
-      }
-
-      function separator() {
-        checkPage()
-        doc.setDrawColor(160)
-        doc.line(margin, y, margin + maxW, y)
-        y += lh
-      }
-
-      async function addPhoto(url: string | null) {
-        if (!url) return
-        const img = await loadImage(url)
-        if (!img) return
-        writeLine('Foto adjunta:')
-        const imgW = 80
-        const imgH = imgW * (img.h / img.w)
-        if (y + imgH > 272) { doc.addPage(); addLogoToPage(); y = 25 }
-        doc.addImage(img.data, 'JPEG', margin, y, imgW, imgH)
-        y += imgH + 4
-      }
-
-      // Logo primera página
-      addLogoToPage()
-
-      // ── Cabecera ─────────────────────────────────────────────
-      writeLine('INVENTARIO DE ACTIVOS FISICOS — AGRICOLA MARVIC 360', true, 13)
-      y += 2
-      writeLine(`Ubicacion: ${ubicacion.nombre}`)
-      writeLine(`Generado el: ${new Date().toLocaleString('es-ES')}`)
-
-      if (informeTipo === 'historico') {
-        writeLine(`Periodo: ${informeFechaInicio} a ${informeFechaFin}`)
-      } else if (informeTipo === 'categoria') {
-        const cat = categorias.find(c => c.id === informeCategoria)
-        writeLine(`Categoria: ${cat?.nombre ?? ''}`)
-        writeLine(`Periodo: ${informeFechaInicio} a ${informeFechaFin}`)
-      } else {
-        writeLine(`Stock a 01/${String(informeMes).padStart(2, '0')}/${informeAnio}`)
-      }
-
-      y += 2
-      separator()
-
-      // ── Datos ────────────────────────────────────────────────
       const groups = await fetchGruposInforme()
-      let totalGeneral = 0
-
-      if (groups.size === 0) {
-        writeLine('Sin registros en el periodo seleccionado.')
-      }
-
-      for (const [, g] of groups) {
-        writeLine(g.nombre.toUpperCase(), true, 11)
-        y += 1
-        let totalSeccion = 0
-
-        for (const r of g.rows) {
-          writeLine(`  Fecha: ${formatFecha(r.created_at)}`)
-          writeLine(`  Cantidad: ${r.cantidad} ${r.unidad}`)
-          if (r.descripcion) writeLine(`  Descripcion: ${r.descripcion}`)
-          if (r.precio_unitario != null) {
-            const imp = r.cantidad * r.precio_unitario
-            totalSeccion += imp
-            writeLine(`  Precio: ${fmtEur(r.precio_unitario)}/unidad  —  Importe: ${fmtEur(imp)}`)
-          }
-          if (r.notas) writeLine(`  Notas: ${r.notas}`)
-          await addPhoto(r.foto_url)
-          if (r.foto_url_2) await addPhoto(r.foto_url_2)
-          y += 2
-        }
-
-        if (totalSeccion > 0) {
-          y += 1
-          writeLine(`  TOTAL ${g.nombre.toUpperCase()}: ${fmtEur(totalSeccion)}`, true)
-          totalGeneral += totalSeccion
-        }
-        y += 3
-      }
-
-      // ── Total general ─────────────────────────────────────────
-      if (totalGeneral > 0) {
-        y += 2
-        separator()
-        writeLine(`TOTAL GENERAL: ${fmtEur(totalGeneral)}`, true, 12)
-      }
-
-      // ── Descarga ─────────────────────────────────────────────
-      const slug  = ubicacion.nombre.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 25)
+      const slug = ubicacion.nombre.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 25)
       const fecha = new Date().toISOString().slice(0, 10)
-      doc.save(`inventario_${slug}_${fecha}.pdf`)
-      setShowInformeModal(false)
 
+      await generarPDFCorporativoBase({
+        titulo: 'INVENTARIO DE ACTIVOS',
+        subtitulo: ubicacion.nombre,
+        fecha: new Date(),
+        filename: `inventario_${slug}_${fecha}.pdf`,
+        bloques: [
+          async ctx => {
+            const doc = ctx.doc
+            doc.setFontSize(9)
+            doc.setFont('helvetica', 'normal')
+            doc.setTextColor(...PDF_BRAND.muted)
+            doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, PDF_MARGIN, ctx.y)
+            ctx.y += 5
+            if (informeTipo === 'historico') {
+              doc.text(`Periodo: ${informeFechaInicio} a ${informeFechaFin}`, PDF_MARGIN, ctx.y)
+            } else if (informeTipo === 'categoria') {
+              const cat = categorias.find(c => c.id === informeCategoria)
+              doc.text(`Categoría: ${cat?.nombre ?? ''} · ${informeFechaInicio} a ${informeFechaFin}`, PDF_MARGIN, ctx.y)
+            } else {
+              doc.text(`Stock a 01/${String(informeMes).padStart(2, '0')}/${informeAnio}`, PDF_MARGIN, ctx.y)
+            }
+            ctx.y += 8
+
+            let totalGeneral = 0
+            if (groups.size === 0) {
+              doc.setTextColor(...PDF_BRAND.green)
+              doc.text('Sin registros en el periodo seleccionado.', PDF_MARGIN, ctx.y)
+              return
+            }
+
+            async function addPhotoPdf(url: string | null) {
+              if (!url) return
+              const img = await loadPdfImage(url)
+              if (!img) return
+              ctx.checkPage(14)
+              doc.setFontSize(8)
+              doc.setTextColor(...PDF_BRAND.muted)
+              doc.text('Fotografía:', PDF_MARGIN, ctx.y)
+              ctx.y += 4
+              const imgW = 80
+              const imgH = Math.min(imgW * (img.natH / img.natW), 95)
+              ctx.checkPage(imgH + 4)
+              doc.addImage(img.b64, 'JPEG', PDF_MARGIN, ctx.y, imgW, imgH)
+              ctx.y += imgH + 5
+            }
+
+            for (const [, g] of groups) {
+              pdfCorporateSection(ctx, g.nombre)
+              let totalSeccion = 0
+              for (const r of g.rows) {
+                doc.setFontSize(8)
+                doc.setFont('helvetica', 'normal')
+                doc.setTextColor(...PDF_BRAND.green)
+                const bloquesTxt = [
+                  `  Fecha: ${formatFecha(r.created_at)}`,
+                  `  Cantidad: ${r.cantidad} ${r.unidad}`,
+                  ...(r.descripcion ? [`  Descripción: ${r.descripcion}`] : []),
+                ]
+                if (r.precio_unitario != null) {
+                  const imp = r.cantidad * r.precio_unitario
+                  totalSeccion += imp
+                  bloquesTxt.push(`  Precio: ${fmtEur(r.precio_unitario)}/unidad  —  Importe: ${fmtEur(imp)}`)
+                }
+                if (r.notas) bloquesTxt.push(`  Notas: ${r.notas}`)
+                for (const t of bloquesTxt) {
+                  const lines = doc.splitTextToSize(t, PDF_TEXT_W) as string[]
+                  for (const ln of lines) {
+                    ctx.checkPage(4)
+                    doc.text(ln, PDF_MARGIN, ctx.y)
+                    ctx.y += 4
+                  }
+                }
+                await addPhotoPdf(r.foto_url)
+                await addPhotoPdf(r.foto_url_2)
+                ctx.y += 2
+              }
+              if (totalSeccion > 0) {
+                ctx.checkPage(6)
+                doc.setFont('helvetica', 'bold')
+                doc.setFontSize(9)
+                doc.text(`  TOTAL ${g.nombre.toUpperCase()}: ${fmtEur(totalSeccion)}`, PDF_MARGIN, ctx.y)
+                ctx.y += 6
+                totalGeneral += totalSeccion
+              }
+              ctx.y += 2
+            }
+            if (totalGeneral > 0) {
+              ctx.separator()
+              doc.setFont('helvetica', 'bold')
+              doc.setFontSize(11)
+              doc.setTextColor(...PDF_BRAND.green)
+              doc.text(`TOTAL GENERAL: ${fmtEur(totalGeneral)}`, PDF_MARGIN, ctx.y)
+            }
+          },
+        ],
+      })
+      setShowInformeModal(false)
     } catch (err: unknown) {
       setPdfError(err instanceof Error ? err.message : 'Error generando el PDF')
     } finally {
@@ -709,7 +707,7 @@ export default function InventarioUbicacion() {
 
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="h-screen w-screen relative overflow-hidden bg-[#020617]">
+    <div className="h-screen w-screen relative overflow-hidden bg-background text-foreground">
 
       {/* ── FONDO — LOGO WATERMARK ─────────────────────────── */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
@@ -925,7 +923,7 @@ export default function InventarioUbicacion() {
                       )}
                       <div className="flex justify-end mt-1">
                         <RecordActions
-                          onEdit={() => {}}
+                          onEdit={() => openModalEdit(r)}
                           onDelete={async () => {
                             if (!confirm('¿Eliminar este registro?')) return
                             await supabase.from('inventario_registros').delete().eq('id', r.id)
@@ -1342,12 +1340,13 @@ export default function InventarioUbicacion() {
             <div className="flex items-start justify-between px-5 py-4 border-b border-white/10 shrink-0">
               <div>
                 <p className="text-[11px] font-black text-[#6d9b7d] uppercase tracking-[0.3em]">
-                  Añadir Registro
+                  {editRegistro ? 'Editar registro' : 'Añadir registro'}
                 </p>
                 <p className="text-[10px] text-slate-500 mt-0.5">{activeCat.nombre}</p>
               </div>
               <button
-                onClick={() => setShowModal(false)}
+                type="button"
+                onClick={() => { setShowModal(false); setEditRegistro(null) }}
                 className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center hover:bg-slate-700 transition-colors ml-4 shrink-0"
               >
                 <X className="w-4 h-4 text-slate-400" />
@@ -1589,7 +1588,7 @@ export default function InventarioUbicacion() {
                 disabled={submitting || !cantidad}
                 className="w-full py-2.5 rounded-lg bg-[#6d9b7d]/20 border border-[#6d9b7d]/40 hover:bg-[#6d9b7d]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-black uppercase tracking-widest text-[#6d9b7d]"
               >
-                {submitting ? 'Guardando...' : 'Guardar registro'}
+                {submitting ? 'Guardando...' : editRegistro ? 'Guardar cambios' : 'Guardar registro'}
               </button>
 
             </form>

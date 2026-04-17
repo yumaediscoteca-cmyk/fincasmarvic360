@@ -253,7 +253,7 @@ export default function IntegracionERP() {
 
   // ── Render ───────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#020617] text-white flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* CABECERA */}
       <header className="bg-slate-900/80 border-b border-white/10 pl-14 pr-4 py-2.5 flex items-center gap-3">
         <button onClick={() => navigate('/dashboard')} className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors">
@@ -413,9 +413,8 @@ export default function IntegracionERP() {
                       <td className="px-4 py-3 text-[11px] text-center font-mono text-emerald-400">{registros}</td>
                       <td className="px-4 py-3 text-[10px] text-slate-500 truncate max-w-[200px]" title={notasFiltros}>{notasFiltros || '—'}</td>
                       <td className="px-4 py-3 text-right">
-                        <RecordActions 
-                          onEdit={() => {}}
-                          onDelete={() => deleteExport.mutate(h.id)} 
+                        <RecordActions
+                          onDelete={() => deleteExport.mutate(h.id)}
                           confirmMessage="¿Eliminar este registro del historial?"
                         />
                       </td>

@@ -48,7 +48,7 @@ const AppRoutes = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center text-foreground">
         <div className="text-slate-300">Cargando...</div>
       </div>
     );

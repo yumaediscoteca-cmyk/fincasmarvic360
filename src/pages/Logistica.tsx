@@ -5,7 +5,6 @@ import {
   Fuel, Gauge, Calendar, Wrench, ChevronRight, Navigation,
   ChevronDown, Car, Phone,
 } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import {
   useCamiones, useAddCamion, useUpdateCamion, useDeleteCamion,
@@ -28,7 +27,6 @@ import {
   generarPDFCorporativoBase,
   pdfCorporateSection,
   pdfCorporateTable,
-  PDF_COLORS,
   PDF_MARGIN,
 } from '../utils/pdfUtils';
 import { FINCAS_NOMBRES as FINCAS } from '../constants/farms';
@@ -41,8 +39,8 @@ type TabType = 'camiones' | 'vehiculos' | 'conductores' | 'viajes' | 'mantenimie
 
 // ── Constantes ────────────────────────────────────────────────
 
-const INPUT  = 'w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-purple-400/50 focus:outline-none';
-const LABEL  = 'block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1';
+const INPUT  = 'w-full bg-background border border-input rounded-lg px-3 py-2 text-xs text-foreground focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/25 focus:outline-none';
+const LABEL  = 'block text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1';
 
 const MARCAS_CAMION   = ['MAN', 'Iveco', 'Volvo', 'DAF', 'Mercedes-Benz', 'Renault Trucks', 'Scania', 'FUSO'];
 const MODELOS_CAMION  = ['TGM', 'TGS', 'Daily', 'Stralis', 'FH', 'XF', 'Actros', 'T-Series', 'S-Series'];
@@ -109,7 +107,7 @@ function mismoDia(a: Date, b: Date): boolean {
 
 const BadgeEstado = React.memo(function BadgeEstado({ estado }: { estado: string | null }) {
   if (!estado) return null;
-  const cls = ESTADO_CLS[estado] ?? 'text-slate-400 border-slate-400/60';
+  const cls = ESTADO_CLS[estado] ?? 'text-muted-foreground border-border';
   return (
     <span className={`text-[8px] font-black uppercase tracking-widest border px-1.5 py-0.5 rounded ${cls}`}>
       {ESTADO_LABEL[estado] ?? estado}
@@ -200,13 +198,13 @@ const ModalCamion = React.memo(function ModalCamion({
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-white/10 shrink-0">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
           <Truck className="w-5 h-5 text-purple-400" />
-          <p className="flex-1 text-[11px] font-black text-white uppercase tracking-wider">
+          <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">
             {isEdit ? `Editar camión${initial!.codigo_interno ? ' · ' + initial!.codigo_interno : ''}` : 'Nuevo camión'}
           </p>
-          <button onClick={onClose} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-5 space-y-3 overflow-y-auto flex-1">
           {isEdit && initial?.codigo_interno && (
@@ -302,7 +300,7 @@ const ModalCamion = React.memo(function ModalCamion({
           </div>
           <AudioInput label="NOTAS MANTENIMIENTO" value={form.notas_mantenimiento} onChange={v => set('notas_mantenimiento', v)} rows={2} placeholder="Estado general, revisiones pendientes…" />
         </div>
-        <div className="px-5 py-3 border-t border-white/10 flex gap-2 shrink-0">
+        <div className="px-5 py-3 border-t border-border flex gap-2 shrink-0">
           <button onClick={onClose} className="btn-secondary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest">Cancelar</button>
           <button onClick={handleSubmit} disabled={!form.matricula || isPending}
             className="btn-primary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-40">
@@ -389,13 +387,13 @@ const ModalVehiculo = React.memo(function ModalVehiculo({
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-white/10 shrink-0">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
           <Car className="w-5 h-5 text-purple-400" />
-          <p className="flex-1 text-[11px] font-black text-white uppercase tracking-wider">
+          <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">
             {isEdit ? `Editar vehículo${initial!.codigo_interno ? ' · ' + initial!.codigo_interno : ''}` : 'Nuevo vehículo de empresa'}
           </p>
-          <button onClick={onClose} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-5 space-y-3 overflow-y-auto flex-1">
           {isEdit && initial?.codigo_interno && (
@@ -485,7 +483,7 @@ const ModalVehiculo = React.memo(function ModalVehiculo({
           </div>
           <AudioInput label="NOTAS" value={form.notas} onChange={v => set('notas', v)} rows={2} placeholder="Observaciones, estado general…" />
         </div>
-        <div className="px-5 py-3 border-t border-white/10 flex gap-2 shrink-0">
+        <div className="px-5 py-3 border-t border-border flex gap-2 shrink-0">
           <button onClick={onClose} className="btn-secondary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest">Cancelar</button>
           <button onClick={handleSubmit} disabled={!form.matricula || isPending}
             className="btn-primary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-40">
@@ -565,13 +563,13 @@ const ModalViaje = React.memo(function ModalViaje({
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-white/10 shrink-0">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
           <MapPin className="w-5 h-5 text-purple-400" />
-          <p className="flex-1 text-[11px] font-black text-white uppercase tracking-wider">
+          <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">
             {isEdit ? 'Editar viaje' : 'Registrar viaje'}
           </p>
-          <button onClick={onClose} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-5 space-y-3 overflow-y-auto flex-1">
           <div className="grid grid-cols-2 gap-3">
@@ -663,7 +661,7 @@ const ModalViaje = React.memo(function ModalViaje({
           </div>
           <AudioInput label="NOTAS" value={form.notas} onChange={v => set('notas', v)} rows={2} placeholder="Observaciones adicionales…" />
         </div>
-        <div className="px-5 py-3 border-t border-white/10 flex gap-2 shrink-0">
+        <div className="px-5 py-3 border-t border-border flex gap-2 shrink-0">
           <button onClick={onClose} className="btn-secondary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest">Cancelar</button>
           <button onClick={handleSubmit} disabled={isPending}
             className="btn-primary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-40">
@@ -767,13 +765,13 @@ const ModalMantenimiento = React.memo(function ModalMantenimiento({
 
   return (
     <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-white/10 shrink-0">
+      <div className="bg-card border border-border rounded-xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
           <Wrench className="w-5 h-5 text-purple-400" />
-          <p className="flex-1 text-[11px] font-black text-white uppercase tracking-wider">
+          <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">
             {isEdit ? 'Editar mantenimiento' : 'Nuevo mantenimiento'}
           </p>
-          <button onClick={onClose} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-5 space-y-3 overflow-y-auto flex-1">
           <div className="grid grid-cols-2 gap-3">
@@ -840,7 +838,7 @@ const ModalMantenimiento = React.memo(function ModalMantenimiento({
             <PhotoAttachment value={foto2Preview} onChange={setFoto2} />
           </div>
         </div>
-        <div className="px-5 py-3 border-t border-white/10 flex gap-2 shrink-0">
+        <div className="px-5 py-3 border-t border-border flex gap-2 shrink-0">
           <button onClick={onClose} className="btn-secondary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest">Cancelar</button>
           <button onClick={handleSubmit} disabled={isPending}
             className="btn-primary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-40">
@@ -933,13 +931,13 @@ const ModalCombustible = React.memo(function ModalCombustible({
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-white/10 shrink-0">
+      <div className="bg-card border border-border rounded-xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
           <Fuel className="w-5 h-5 text-purple-400" />
-          <p className="flex-1 text-[11px] font-black text-white uppercase tracking-wider">
+          <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">
             {isEdit ? 'Editar repostaje' : 'Nuevo repostaje'}
           </p>
-          <button onClick={onClose} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-5 space-y-3 overflow-y-auto flex-1">
           <div className="grid grid-cols-2 gap-3">
@@ -995,7 +993,7 @@ const ModalCombustible = React.memo(function ModalCombustible({
           </div>
           <AudioInput label="NOTAS" value={form.notas} onChange={v => set('notas', v)} rows={2} placeholder="Observaciones…" />
         </div>
-        <div className="px-5 py-3 border-t border-white/10 flex gap-2 shrink-0">
+        <div className="px-5 py-3 border-t border-border flex gap-2 shrink-0">
           <button onClick={onClose} className="btn-secondary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest">Cancelar</button>
           <button onClick={handleSubmit} disabled={!form.vehiculo_id || isPending}
             className="btn-primary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-40">
@@ -1011,9 +1009,7 @@ const ModalCombustible = React.memo(function ModalCombustible({
 
 export default function Logistica() {
   const navigate   = useNavigate();
-  const { theme }  = useTheme();
   const { user }   = useAuth();
-  const isDark     = theme === 'dark';
 
   const [tab, setTab] = useState<TabType>('camiones');
   const [pdfMenuOpen, setPdfMenuOpen]   = useState(false);
@@ -1090,7 +1086,7 @@ export default function Logistica() {
     const ref = new Date(); const fs = ref.toISOString().slice(0, 10);
     await generarPDFCorporativoBase({
       titulo: 'LOGÍSTICA', subtitulo: 'Informe completo de flota y operaciones',
-      fecha: ref, filename: `Logistica_Completa_${fs}.pdf`, accentColor: PDF_COLORS.violet,
+      fecha: ref, filename: `Logistica_Completa_${fs}.pdf`,
       bloques: [
         ctx => {
           pdfCorporateSection(ctx, 'Camiones');
@@ -1124,7 +1120,7 @@ export default function Logistica() {
     const hoy = viajes.filter(v => v.hora_salida && mismoDia(new Date(v.hora_salida), ref));
     await generarPDFCorporativoBase({
       titulo: 'LOGÍSTICA — VIAJES', subtitulo: 'Movimientos del día',
-      fecha: ref, filename: `Logistica_Viajes_${fs}.pdf`, accentColor: PDF_COLORS.violet,
+      fecha: ref, filename: `Logistica_Viajes_${fs}.pdf`,
       bloques: [ctx => {
         pdfCorporateSection(ctx, 'Viajes del día');
         if (hoy.length === 0) { ctx.checkPage(8); ctx.doc.setFontSize(9); ctx.doc.setTextColor(100,116,139); ctx.doc.text('Sin viajes hoy.', PDF_MARGIN, ctx.y); ctx.y += 6; return; }
@@ -1138,7 +1134,7 @@ export default function Logistica() {
     const ref = new Date(); const fs = ref.toISOString().slice(0, 10);
     await generarPDFCorporativoBase({
       titulo: 'LOGÍSTICA — FLOTA', subtitulo: 'Estado operativo de camiones y vehículos',
-      fecha: ref, filename: `Logistica_Flota_${fs}.pdf`, accentColor: PDF_COLORS.violet,
+      fecha: ref, filename: `Logistica_Flota_${fs}.pdf`,
       bloques: [
         ctx => {
           pdfCorporateSection(ctx, 'Camiones');
@@ -1159,7 +1155,7 @@ export default function Logistica() {
     const ref = new Date(); const fs = ref.toISOString().slice(0, 10);
     await generarPDFCorporativoBase({
       titulo: 'LOGÍSTICA — MANTENIMIENTO', subtitulo: 'Historial de intervenciones',
-      fecha: ref, filename: `Logistica_Mantenimientos_${fs}.pdf`, accentColor: PDF_COLORS.violet,
+      fecha: ref, filename: `Logistica_Mantenimientos_${fs}.pdf`,
       bloques: [ctx => {
         pdfCorporateSection(ctx, 'Mantenimientos');
         if (mants.length === 0) { ctx.checkPage(8); ctx.doc.setFontSize(9); ctx.doc.setTextColor(100,116,139); ctx.doc.text('Sin mantenimientos.', PDF_MARGIN, ctx.y); ctx.y += 6; return; }
@@ -1173,7 +1169,7 @@ export default function Logistica() {
     const ref = new Date(); const fs = ref.toISOString().slice(0, 10);
     await generarPDFCorporativoBase({
       titulo: 'LOGÍSTICA — RESUMEN', subtitulo: 'Indicadores operativos',
-      fecha: ref, filename: `Logistica_Resumen_${fs}.pdf`, accentColor: PDF_COLORS.violet,
+      fecha: ref, filename: `Logistica_Resumen_${fs}.pdf`,
       bloques: [ctx => {
         pdfCorporateSection(ctx, 'Resumen operativo');
         pdfCorporateTable(ctx, ['INDICADOR', 'VALOR'], [95, 87], [
@@ -1219,18 +1215,18 @@ export default function Logistica() {
     })),
   ];
 
-  const panel = isDark ? 'bg-slate-900/60 border-white/10' : 'bg-white border-slate-200';
+  const panel = 'bg-card/90 border-border';
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#020617] text-white' : 'bg-slate-50 text-slate-900'} flex flex-col`}>
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
 
       {/* HEADER */}
-      <header className={`w-full ${isDark ? 'bg-slate-900/80 border-white/10' : 'bg-white/90 border-slate-200'} border-b pl-14 pr-4 py-2 flex items-center gap-3 z-50`}>
-        <button onClick={() => navigate('/dashboard')} className="flex items-center gap-1.5 text-slate-400 hover:text-[#6d9b7d] transition-colors">
+      <header className="w-full bg-card/95 backdrop-blur-md border-border border-b pl-14 pr-4 py-2 flex items-center gap-3 z-50">
+        <button type="button" onClick={() => navigate('/dashboard')} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4" />
           <span className="text-[9px] font-black uppercase tracking-widest">Dashboard</span>
         </button>
-        <span className="text-slate-600">|</span>
+        <span className="text-muted-foreground/70">|</span>
         <Truck className="w-4 h-4 text-purple-400" />
         <span className="text-[11px] font-black uppercase tracking-wider">Logística</span>
         <div className="ml-auto flex items-center gap-2">
@@ -1244,7 +1240,7 @@ export default function Logistica() {
               <ChevronDown className={`w-3 h-3 transition-transform ${pdfMenuOpen ? 'rotate-180' : ''}`} />
             </button>
             {pdfMenuOpen && (
-              <div className={`absolute right-0 top-full z-[70] mt-1 min-w-[240px] rounded-lg border shadow-lg py-1 ${isDark ? 'border-slate-600 bg-slate-900 shadow-black/40' : 'border-slate-200 bg-white shadow-slate-400/20'}`}>
+              <div className="absolute right-0 top-full z-[70] mt-1 min-w-[240px] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg py-1">
                 {[
                   { k: 1 as const, label: 'Informe completo logística' },
                   { k: 2 as const, label: 'Viajes del día' },
@@ -1253,7 +1249,7 @@ export default function Logistica() {
                   { k: 5 as const, label: 'Resumen operativo' },
                 ].map(({ k, label }) => (
                   <button key={k} type="button" disabled={generandoPdf} onClick={() => onElegirPdf(k)}
-                    className={`w-full px-3 py-2.5 text-left text-xs font-medium transition-colors disabled:opacity-50 ${isDark ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-slate-50 text-slate-800'}`}>
+                    className="w-full px-3 py-2.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50">
                     {label}
                   </button>
                 ))}
@@ -1275,7 +1271,7 @@ export default function Logistica() {
             { label: 'Viajes',      value: kpis.totalViajes,      color: '#60a5fa' },
           ].map(kpi => (
             <div key={kpi.label} className={`${panel} border rounded-xl p-3 text-center`}>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{kpi.label}</p>
+              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{kpi.label}</p>
               <p className="text-xl font-black" style={{ color: kpi.color }}>{kpi.value}</p>
             </div>
           ))}
@@ -1292,7 +1288,7 @@ export default function Logistica() {
             <div key={kpi.label} className={`${panel} border rounded-xl p-3 flex items-center gap-2`}>
               {kpi.icon}
               <div>
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{kpi.label}</p>
+                <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">{kpi.label}</p>
                 <p className={`text-[13px] font-black ${kpi.color}`}>{kpi.value}</p>
               </div>
             </div>
@@ -1302,36 +1298,36 @@ export default function Logistica() {
         {/* PANEL ESTADO FLOTA */}
         {flotaItems.length > 0 && (
           <div className={`${panel} border rounded-xl p-4 mb-5`}>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Estado de flota</p>
+            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-3">Estado de flota</p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {flotaItems.map(item => {
                 const dias = itvDias(item.itvDate);
                 const itvRojo = dias !== null && dias < 30;
                 return (
-                  <div key={item.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg ${isDark ? 'bg-slate-800/50' : 'bg-slate-50'} border ${isDark ? 'border-white/5' : 'border-slate-200'}`}>
+                  <div key={item.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/40 border border-border">
                     {item.tipo === 'Camión'
                       ? <Truck className="w-4 h-4 text-purple-400 shrink-0" />
                       : <Car   className="w-4 h-4 text-sky-400 shrink-0" />}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {item.codigo && <span className="text-[8px] text-slate-500">{item.codigo}</span>}
-                        <span className="text-[10px] font-black text-white uppercase">{item.matricula}</span>
-                        {item.marca && <span className="text-[9px] text-slate-400">{item.marca}</span>}
+                        {item.codigo && <span className="text-[8px] text-muted-foreground">{item.codigo}</span>}
+                        <span className="text-[10px] font-black text-foreground uppercase">{item.matricula}</span>
+                        {item.marca && <span className="text-[9px] text-muted-foreground">{item.marca}</span>}
                         <BadgeEstado estado={item.estado} />
                       </div>
                       <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                         {item.itvDate && (
-                          <span className={`text-[8px] flex items-center gap-0.5 ${itvRojo ? 'text-red-400' : 'text-slate-400'}`}>
+                          <span className={`text-[8px] flex items-center gap-0.5 ${itvRojo ? 'text-red-400' : 'text-muted-foreground'}`}>
                             <Calendar className="w-2.5 h-2.5" />ITV: {fmtFecha(item.itvDate)}{itvRojo && dias !== null && ` (${dias}d)`}
                           </span>
                         )}
                         {item.km != null && (
-                          <span className="text-[8px] text-slate-400 flex items-center gap-0.5">
+                          <span className="text-[8px] text-muted-foreground flex items-center gap-0.5">
                             <Gauge className="w-2.5 h-2.5" />{item.km.toLocaleString('es-ES')} km
                           </span>
                         )}
                         {item.conductor && (
-                          <span className="text-[8px] text-slate-400">{item.conductor}</span>
+                          <span className="text-[8px] text-muted-foreground">{item.conductor}</span>
                         )}
                       </div>
                     </div>
@@ -1353,7 +1349,7 @@ export default function Logistica() {
             ['combustible',   'Combustible',  <Fuel   key="f" className="w-3 h-3 inline mr-1" />],
           ] as [TabType, string, React.ReactNode][]).map(([t, label, icon]) => (
             <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 min-w-fit py-2 px-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors whitespace-nowrap ${tab === t ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'text-slate-400 hover:text-slate-300'}`}>
+              className={`flex-1 min-w-fit py-2 px-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors whitespace-nowrap ${tab === t ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20' : 'text-muted-foreground hover:text-foreground'}`}>
               {icon}{label}
             </button>
           ))}
@@ -1363,14 +1359,14 @@ export default function Logistica() {
         {tab === 'camiones' && (
           <>
             <div className="flex justify-between items-center mb-4">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{camiones.length} camión{camiones.length !== 1 ? 'es' : ''}</p>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{camiones.length} camión{camiones.length !== 1 ? 'es' : ''}</p>
               <button onClick={() => setModalAddCamion(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-colors">
                 <Plus className="w-3 h-3" />Nuevo camión
               </button>
             </div>
             {camiones.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-muted-foreground">
                 <Truck className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-xs font-black uppercase tracking-widest">Sin camiones registrados</p>
               </div>
@@ -1385,18 +1381,18 @@ export default function Logistica() {
                         <Truck className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            {c.codigo_interno && <span className="text-[8px] text-slate-500">{c.codigo_interno}</span>}
-                            <span className="text-[12px] font-black text-white uppercase">{c.matricula}</span>
+                            {c.codigo_interno && <span className="text-[8px] text-muted-foreground">{c.codigo_interno}</span>}
+                            <span className="text-[12px] font-black text-foreground uppercase">{c.matricula}</span>
                             <BadgeEstado estado={c.estado_operativo} />
                             {dias !== null && dias < 0 && <span className="text-[8px] font-black text-red-400">ITV VENCIDA</span>}
                             {dias !== null && dias >= 0 && dias < 30 && <span className="text-[8px] font-black text-amber-400">ITV en {dias}d</span>}
                           </div>
-                          <p className="text-[10px] text-slate-400">{[c.marca, c.modelo, c.anio].filter(Boolean).join(' · ')}</p>
+                          <p className="text-[10px] text-muted-foreground">{[c.marca, c.modelo, c.anio].filter(Boolean).join(' · ')}</p>
                           <div className="flex items-center gap-3 mt-1 flex-wrap">
-                            <span className="text-[8px] text-slate-500">{misViajes} viajes</span>
-                            {c.kilometros_actuales != null && <span className="text-[8px] text-slate-500 flex items-center gap-0.5"><Gauge className="w-2.5 h-2.5" />{c.kilometros_actuales.toLocaleString('es-ES')} km</span>}
-                            {c.fecha_proxima_itv && <span className={`text-[8px] flex items-center gap-0.5 ${dias !== null && dias < 0 ? 'text-red-400' : dias !== null && dias < 30 ? 'text-amber-400' : 'text-slate-500'}`}><Calendar className="w-2.5 h-2.5" />ITV: {fmtFecha(c.fecha_proxima_itv)}</span>}
-                            {c.empresa_transporte && <span className="text-[8px] text-slate-500">{c.empresa_transporte}</span>}
+                            <span className="text-[8px] text-muted-foreground">{misViajes} viajes</span>
+                            {c.kilometros_actuales != null && <span className="text-[8px] text-muted-foreground flex items-center gap-0.5"><Gauge className="w-2.5 h-2.5" />{c.kilometros_actuales.toLocaleString('es-ES')} km</span>}
+                            {c.fecha_proxima_itv && <span className={`text-[8px] flex items-center gap-0.5 ${dias !== null && dias < 0 ? 'text-red-400' : dias !== null && dias < 30 ? 'text-amber-400' : 'text-muted-foreground'}`}><Calendar className="w-2.5 h-2.5" />ITV: {fmtFecha(c.fecha_proxima_itv)}</span>}
+                            {c.empresa_transporte && <span className="text-[8px] text-muted-foreground">{c.empresa_transporte}</span>}
                           </div>
                         </div>
                         <RecordActions
@@ -1417,14 +1413,14 @@ export default function Logistica() {
         {tab === 'vehiculos' && (
           <>
             <div className="flex justify-between items-center mb-4">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{vehiculos.length} vehículo{vehiculos.length !== 1 ? 's' : ''}</p>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{vehiculos.length} vehículo{vehiculos.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setModalAddVehiculo(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-colors">
                 <Plus className="w-3 h-3" />Nuevo vehículo
               </button>
             </div>
             {vehiculos.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-muted-foreground">
                 <Car className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-xs font-black uppercase tracking-widest">Sin vehículos de empresa registrados</p>
               </div>
@@ -1439,17 +1435,17 @@ export default function Logistica() {
                         <Car className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            {v.codigo_interno && <span className="text-[8px] text-slate-500">{v.codigo_interno}</span>}
-                            <span className="text-[12px] font-black text-white uppercase">{v.matricula}</span>
+                            {v.codigo_interno && <span className="text-[8px] text-muted-foreground">{v.codigo_interno}</span>}
+                            <span className="text-[12px] font-black text-foreground uppercase">{v.matricula}</span>
                             <BadgeEstado estado={v.estado_operativo} />
                             {dias !== null && dias < 0 && <span className="text-[8px] font-black text-red-400">ITV VENCIDA</span>}
                             {dias !== null && dias >= 0 && dias < 30 && <span className="text-[8px] font-black text-amber-400">ITV en {dias}d</span>}
                           </div>
-                          <p className="text-[10px] text-slate-400">{[v.marca, v.modelo, v.anio, v.tipo].filter(Boolean).join(' · ')}</p>
+                          <p className="text-[10px] text-muted-foreground">{[v.marca, v.modelo, v.anio, v.tipo].filter(Boolean).join(' · ')}</p>
                           <div className="flex items-center gap-3 mt-1 flex-wrap">
-                            {v.km_actuales != null && <span className="text-[8px] text-slate-500 flex items-center gap-0.5"><Gauge className="w-2.5 h-2.5" />{v.km_actuales.toLocaleString('es-ES')} km</span>}
-                            {v.fecha_proxima_itv && <span className={`text-[8px] flex items-center gap-0.5 ${dias !== null && dias < 0 ? 'text-red-400' : dias !== null && dias < 30 ? 'text-amber-400' : 'text-slate-500'}`}><Calendar className="w-2.5 h-2.5" />ITV: {fmtFecha(v.fecha_proxima_itv)}</span>}
-                            {condNombre && <span className="text-[8px] text-slate-500">{condNombre}</span>}
+                            {v.km_actuales != null && <span className="text-[8px] text-muted-foreground flex items-center gap-0.5"><Gauge className="w-2.5 h-2.5" />{v.km_actuales.toLocaleString('es-ES')} km</span>}
+                            {v.fecha_proxima_itv && <span className={`text-[8px] flex items-center gap-0.5 ${dias !== null && dias < 0 ? 'text-red-400' : dias !== null && dias < 30 ? 'text-amber-400' : 'text-muted-foreground'}`}><Calendar className="w-2.5 h-2.5" />ITV: {fmtFecha(v.fecha_proxima_itv)}</span>}
+                            {condNombre && <span className="text-[8px] text-muted-foreground">{condNombre}</span>}
                           </div>
                         </div>
                         <RecordActions
@@ -1470,14 +1466,14 @@ export default function Logistica() {
         {tab === 'conductores' && (
           <>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{conductores.length} conductor{conductores.length !== 1 ? 'es' : ''} activos</p>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{conductores.length} conductor{conductores.length !== 1 ? 'es' : ''} activos</p>
               <button onClick={() => navigate('/personal')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#e879f9]/10 border border-[#e879f9]/20 text-[#e879f9] text-[9px] font-black uppercase tracking-widest hover:bg-[#e879f9]/20 transition-colors">
                 <Users className="w-3 h-3" />Gestionar personal
               </button>
             </div>
             {conductores.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-muted-foreground">
                 <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-xs font-black uppercase tracking-widest">Sin conductores de camión</p>
                 <p className="text-[10px] mt-1">Añade conductores de camión en el módulo Personal</p>
@@ -1486,7 +1482,7 @@ export default function Logistica() {
               <div className={`${panel} border rounded-xl overflow-hidden`}>
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="bg-[#1e293b] text-white">
+                    <tr className="bg-primary text-primary-foreground">
                       {['Nombre', 'DNI', 'Teléfono', 'Estado', 'Viajes'].map(h => (
                         <th key={h} className="px-3 py-2 text-left text-[9px] font-black uppercase tracking-widest">{h}</th>
                       ))}
@@ -1496,16 +1492,16 @@ export default function Logistica() {
                     {conductores.map((c, i) => {
                       const misViajes = viajes.filter(v => v.personal_id === c.id).length;
                       return (
-                        <tr key={c.id} className={i % 2 === 0 ? (isDark ? 'bg-slate-900/40' : 'bg-white') : (isDark ? 'bg-slate-800/30' : 'bg-slate-50')}>
-                          <td className="px-3 py-2 font-medium text-white">{c.nombre}</td>
-                          <td className="px-3 py-2 text-slate-400">{c.dni ?? '—'}</td>
-                          <td className="px-3 py-2 text-slate-400">{c.telefono ? <span className="flex items-center gap-1"><Phone className="w-2.5 h-2.5" />{c.telefono}</span> : '—'}</td>
+                        <tr key={c.id} className={i % 2 === 0 ? 'bg-card' : 'bg-muted/25'}>
+                          <td className="px-3 py-2 font-medium text-foreground">{c.nombre}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{c.dni ?? '—'}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{c.telefono ? <span className="flex items-center gap-1"><Phone className="w-2.5 h-2.5" />{c.telefono}</span> : '—'}</td>
                           <td className="px-3 py-2">
                             <span className={`text-[8px] font-black uppercase border px-1.5 py-0.5 rounded ${c.activo ? 'text-green-400 border-green-400/60' : 'text-red-400 border-red-400/60'}`}>
                               {c.activo ? 'Activo' : 'Inactivo'}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-slate-400">{misViajes}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{misViajes}</td>
                         </tr>
                       );
                     })}
@@ -1520,14 +1516,14 @@ export default function Logistica() {
         {tab === 'viajes' && (
           <>
             <div className="flex justify-between items-center mb-4">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{viajes.length} viaje{viajes.length !== 1 ? 's' : ''}</p>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{viajes.length} viaje{viajes.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setModalAddViaje(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-colors">
                 <Plus className="w-3 h-3" />Nuevo viaje
               </button>
             </div>
             {viajes.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-muted-foreground">
                 <MapPin className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-xs font-black uppercase tracking-widest">Sin viajes registrados</p>
               </div>
@@ -1542,16 +1538,16 @@ export default function Logistica() {
                         <MapPin className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="text-[10px] font-black text-white">{v.trabajo_realizado ?? v.ruta ?? 'Viaje sin descripción'}</span>
-                            {v.hora_salida && <span className="text-[8px] text-slate-500 shrink-0">{fmtDatetime(v.hora_salida)}</span>}
+                            <span className="text-[10px] font-black text-foreground">{v.trabajo_realizado ?? v.ruta ?? 'Viaje sin descripción'}</span>
+                            {v.hora_salida && <span className="text-[8px] text-muted-foreground shrink-0">{fmtDatetime(v.hora_salida)}</span>}
                           </div>
                           <div className="flex items-center gap-3 flex-wrap">
-                            {conductor && <span className="text-[9px] text-slate-400">{conductor.nombre}</span>}
-                            {vehiculoLabel !== '—' && <span className="text-[9px] text-slate-400 flex items-center gap-0.5"><Truck className="w-2.5 h-2.5" />{vehiculoLabel}</span>}
-                            {v.finca   && <span className="text-[9px] text-slate-400 flex items-center gap-0.5"><MapPin className="w-2 h-2" />{v.finca}</span>}
-                            {v.destino && <span className="text-[9px] text-slate-400">→ {v.destino}</span>}
-                            {v.km_recorridos != null && <span className="text-[9px] text-slate-400 flex items-center gap-0.5"><Gauge className="w-2.5 h-2.5" />{v.km_recorridos} km</span>}
-                            {v.gasto_gasolina_litros != null && <span className="text-[9px] text-slate-400 flex items-center gap-0.5"><Fuel className="w-2.5 h-2.5" />{v.gasto_gasolina_litros}L</span>}
+                            {conductor && <span className="text-[9px] text-muted-foreground">{conductor.nombre}</span>}
+                            {vehiculoLabel !== '—' && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><Truck className="w-2.5 h-2.5" />{vehiculoLabel}</span>}
+                            {v.finca   && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><MapPin className="w-2 h-2" />{v.finca}</span>}
+                            {v.destino && <span className="text-[9px] text-muted-foreground">→ {v.destino}</span>}
+                            {v.km_recorridos != null && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><Gauge className="w-2.5 h-2.5" />{v.km_recorridos} km</span>}
+                            {v.gasto_gasolina_litros != null && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><Fuel className="w-2.5 h-2.5" />{v.gasto_gasolina_litros}L</span>}
                             {v.gasto_gasolina_euros  != null && <span className="text-[9px] text-purple-300 font-black">{v.gasto_gasolina_euros}€</span>}
                           </div>
                         </div>
@@ -1573,14 +1569,14 @@ export default function Logistica() {
         {tab === 'mantenimiento' && (
           <>
             <div className="flex justify-between items-center mb-4">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{mants.length} registro{mants.length !== 1 ? 's' : ''}</p>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{mants.length} registro{mants.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setModalAddMant(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-colors">
                 <Plus className="w-3 h-3" />Nuevo mantenimiento
               </button>
             </div>
             {mants.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-muted-foreground">
                 <Wrench className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-xs font-black uppercase tracking-widest">Sin mantenimientos registrados</p>
               </div>
@@ -1592,13 +1588,13 @@ export default function Logistica() {
                       <Wrench className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className="text-[10px] font-black text-white uppercase">{m.tipo}</span>
-                          <span className="text-[8px] text-slate-500 shrink-0">{fmtFecha(m.fecha)}</span>
+                          <span className="text-[10px] font-black text-foreground uppercase">{m.tipo}</span>
+                          <span className="text-[8px] text-muted-foreground shrink-0">{fmtFecha(m.fecha)}</span>
                         </div>
                         <div className="flex items-center gap-3 flex-wrap">
-                          <span className="text-[9px] text-slate-400">{getVehiculoLabel(m, { camiones, vehiculos })}</span>
-                          {m.descripcion && <span className="text-[9px] text-slate-400">{m.descripcion}</span>}
-                          {m.proveedor   && <span className="text-[9px] text-slate-500">· {m.proveedor}</span>}
+                          <span className="text-[9px] text-muted-foreground">{getVehiculoLabel(m, { camiones, vehiculos })}</span>
+                          {m.descripcion && <span className="text-[9px] text-muted-foreground">{m.descripcion}</span>}
+                          {m.proveedor   && <span className="text-[9px] text-muted-foreground">· {m.proveedor}</span>}
                           {m.coste_euros != null && <span className="text-[9px] text-purple-300 font-black">{m.coste_euros.toFixed(2)}€</span>}
                         </div>
                       </div>
@@ -1619,14 +1615,14 @@ export default function Logistica() {
         {tab === 'combustible' && (
           <>
             <div className="flex justify-between items-center mb-4">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{combustibles.length} repostaje{combustibles.length !== 1 ? 's' : ''}</p>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{combustibles.length} repostaje{combustibles.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setModalAddComb(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-colors">
                 <Plus className="w-3 h-3" />Nuevo repostaje
               </button>
             </div>
             {combustibles.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
+              <div className="text-center py-12 text-muted-foreground">
                 <Fuel className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-xs font-black uppercase tracking-widest">Sin repostajes registrados</p>
               </div>
@@ -1641,13 +1637,13 @@ export default function Logistica() {
                         <Fuel className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="text-[10px] font-black text-white">{c.gasolinera ?? 'Repostaje'}</span>
-                            <span className="text-[8px] text-slate-500 shrink-0">{fmtDatetime(c.fecha)}</span>
+                            <span className="text-[10px] font-black text-foreground">{c.gasolinera ?? 'Repostaje'}</span>
+                            <span className="text-[8px] text-muted-foreground shrink-0">{fmtDatetime(c.fecha)}</span>
                           </div>
                           <div className="flex items-center gap-3 flex-wrap">
-                            {vehiculoLabel !== '—' && <span className="text-[9px] text-slate-400">{vehiculoLabel}</span>}
-                            {conductor && <span className="text-[9px] text-slate-400">{conductor.nombre}</span>}
-                            {c.litros     != null && <span className="text-[9px] text-slate-400 flex items-center gap-0.5"><Fuel className="w-2.5 h-2.5" />{c.litros}L</span>}
+                            {vehiculoLabel !== '—' && <span className="text-[9px] text-muted-foreground">{vehiculoLabel}</span>}
+                            {conductor && <span className="text-[9px] text-muted-foreground">{conductor.nombre}</span>}
+                            {c.litros     != null && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><Fuel className="w-2.5 h-2.5" />{c.litros}L</span>}
                             {c.coste_total != null && <span className="text-[9px] text-purple-300 font-black">{c.coste_total.toFixed(2)}€</span>}
                           </div>
                         </div>

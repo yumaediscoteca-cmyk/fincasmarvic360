@@ -3,7 +3,7 @@ import { usePresenciaTiempoReal } from '@/hooks/usePresencia'
 import { useCuadrillas } from '@/hooks/useCatalogos'
 import { Users, RefreshCw, Download, FileText } from 'lucide-react'
 import { formatHora, formatFechaCompleta } from '@/utils/dateFormat'
-import { generarPDFCorporativoBase, PDF_COLORS, pdfCorporateSection, pdfCorporateTable, PDF_MARGIN } from '@/utils/pdfUtils'
+import { generarPDFCorporativoBase, pdfCorporateSection, pdfCorporateTable, PDF_MARGIN } from '@/utils/pdfUtils'
 import { SelectWithOther } from '@/components/base'
 import { toast } from '@/hooks/use-toast'
 import * as XLSX from 'xlsx'
@@ -208,7 +208,6 @@ export default function PresenciaPanel() {
       fecha: new Date(),
       filename: `Presencia_Horas_${new Date().toISOString().split('T')[0]}.pdf`,
       bloques,
-      accentColor: PDF_COLORS.accent
     })
   }
 

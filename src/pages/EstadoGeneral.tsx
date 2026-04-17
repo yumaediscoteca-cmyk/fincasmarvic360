@@ -197,7 +197,6 @@ export default function EstadoGeneral() {
       subtitulo: `Panel de alertas activas · ${new Date().toLocaleDateString('es-ES')}`,
       fecha: new Date(),
       filename: `estado_general_${new Date().toISOString().slice(0, 10)}.pdf`,
-      accentColor: [148, 163, 184], // slate
       bloques: [
         (ctx) => {
           pdfCorporateSection(ctx, 'Resumen Ejecutivo')
@@ -235,7 +234,7 @@ export default function EstadoGeneral() {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
 
       {/* CABECERA */}
       <header className="bg-slate-900/80 border-b border-white/10 pl-14 pr-4 py-2.5 flex items-center gap-3 flex-wrap">

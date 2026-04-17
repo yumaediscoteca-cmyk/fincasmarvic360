@@ -13,7 +13,7 @@ export function usePosicionesActuales(vehicleTipo?: 'tractor' | 'camion' | 'vehi
         .order('timestamp', { ascending: false })
         .limit(1000)
       
-      if (vehicleTipo) q = q.eq('vehicle_tipo', vehicleTipo)
+      if (vehicleTipo) q = q.eq('vehicle_type', vehicleTipo)
       
       const { data, error } = await q
       if (error) throw error
@@ -69,7 +69,8 @@ export function useAddPosicion() {
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['gps_posiciones_actuales'] })
-      qc.invalidateQueries({ queryKey: ['gps_recorrido', vars.vehicle_id] })
+      qc.invalidateQueries({ queryKey: ['gps_recorrido'] })
+      toast({ title: 'Posición registrada', description: `Vehículo ${vars.vehicle_id?.slice(0, 8) ?? ''}…` })
     },
     onError: (err: Error) => {
       toast({ title: 'Error GPS', description: err.message, variant: 'destructive' })

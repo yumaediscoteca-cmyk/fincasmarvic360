@@ -256,7 +256,6 @@ export default function Historicos() {
       subtitulo: `Búsqueda global · ${d1} → ${d2}`,
       fecha: new Date(),
       filename: `historicos_${d1}_${d2}.pdf`,
-      accentColor: [148, 163, 184], // slate
       bloques: [
         (ctx) => {
           pdfCorporateSection(ctx, 'Resumen')
@@ -300,7 +299,7 @@ export default function Historicos() {
   }, [entradas, modulo, finca, busqueda])
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
 
       {/* CABECERA */}
       <header className="bg-slate-900/80 border-b border-white/10 pl-14 pr-4 py-2.5 flex items-center gap-3 flex-wrap">

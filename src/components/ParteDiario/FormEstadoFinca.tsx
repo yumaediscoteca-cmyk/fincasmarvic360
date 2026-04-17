@@ -221,8 +221,8 @@ export const FormEstadoFinca = React.memo(({ parteId, estadosFinca, esHoy, onDel
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setModalOpen(false)} className="flex-1 py-2.5 rounded-lg border border-white/10 text-slate-400 text-sm hover:border-white/20 transition-colors">Cancelar</button>
-                <button onClick={submitA} disabled={saving || !formA.finca} className="flex-1 py-2.5 rounded-lg bg-[#6d9b7d] text-[#020617] text-sm font-black hover:bg-sky-300 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                  {saving && <span className="w-3.5 h-3.5 border-2 border-[#020617]/20 border-t-[#020617] rounded-full animate-spin" />} Guardar
+                <button type="button" onClick={submitA} disabled={saving || !formA.finca} className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-black hover:opacity-90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                  {saving && <span className="w-3.5 h-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />} Guardar
                 </button>
               </div>
             </div>

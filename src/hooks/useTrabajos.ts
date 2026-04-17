@@ -126,6 +126,8 @@ export interface PlanificacionCampana {
   id:                       string;
   finca:                    string;
   parcel_id:                string | null;
+  /** Metros cuadrados del sector asignados a esta línea (mismo sector → varias filas con distinto cultivo). */
+  superficie_m2?:           number | null;
   cultivo:                  string;
   fecha_prevista_plantacion: string | null;
   fecha_estimada_cosecha:   string | null;

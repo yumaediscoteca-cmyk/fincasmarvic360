@@ -5,12 +5,12 @@ import {
   MapPin, Clock, Fuel, ChevronRight,
   Calendar, Activity, Navigation,
 } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import {
   useTractores, useTractoresEnInventario, useAperosEnInventario,
   useAddTractor, useUpdateTractor, useDeleteTractor,
-  useAperos, useAddApero, useDeleteApero,
+  useAperos, useAddApero, useUpdateApero, useDeleteApero,
+  useSyncMaquinariaInventario,
   useUsosMaquinaria, useAddUsoMaquinaria,
   useMantenimientoTractor, useAddMantenimientoTractor,
   useKPIsMaquinaria,
@@ -24,7 +24,6 @@ import {
   generarPDFCorporativoBase,
   pdfCorporateSection,
   pdfCorporateTable,
-  PDF_COLORS,
   PDF_MARGIN,
 } from '../utils/pdfUtils';
 import { FINCAS_NOMBRES as FINCAS } from '../constants/farms';
@@ -100,7 +99,7 @@ function nombreOperarioUso(u: UsoMaquinaria, personal: Personal[]): string {
 // ── Etiqueta label compacta ───────────────────────────────────
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">
+    <label className="block text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">
       {children}
     </label>
   );
@@ -111,7 +110,7 @@ function BaseInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-orange-400/50 focus:outline-none ${props.className ?? ''}`}
+      className={`w-full bg-background border border-input rounded-lg px-3 py-2 text-xs text-foreground focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/25 focus:outline-none ${props.className ?? ''}`}
     />
   );
 }
@@ -122,7 +121,7 @@ function BaseSelect(props: React.SelectHTMLAttributes<HTMLSelectElement> & { chi
   return (
     <select
       {...rest}
-      className={`w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-orange-400/50 focus:outline-none ${props.className ?? ''}`}
+      className={`w-full bg-background border border-input rounded-lg px-3 py-2 text-xs text-foreground focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/25 focus:outline-none ${props.className ?? ''}`}
     >
       {children}
     </select>
@@ -235,13 +234,13 @@ const ModalTractor = React.memo(function ModalTractor({
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-lg mx-4 shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-white/10">
+      <div className="bg-card border border-border rounded-xl w-full max-w-lg mx-4 shadow-2xl overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
           <Tractor className="w-5 h-5 text-orange-400" />
-          <p className="flex-1 text-[11px] font-black text-white uppercase tracking-wider">
+          <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">
             {tractor ? 'Editar tractor' : 'Nuevo tractor'}
           </p>
-          <button onClick={onClose} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="p-5 space-y-3 max-h-[75vh] overflow-y-auto">
@@ -251,7 +250,7 @@ const ModalTractor = React.memo(function ModalTractor({
             <BaseInput
               value={tractor?.codigo_interno ?? 'Se asignará automáticamente'}
               readOnly
-              className="text-slate-500 cursor-default"
+              className="text-muted-foreground cursor-default"
             />
           </div>
 
@@ -398,7 +397,7 @@ const ModalTractor = React.memo(function ModalTractor({
           </div>
         </div>
 
-        <div className="px-5 py-3 border-t border-white/10 flex gap-2">
+        <div className="px-5 py-3 border-t border-border flex gap-2">
           <button onClick={onClose} className="btn-secondary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest">
             Cancelar
           </button>
@@ -426,8 +425,10 @@ const ModalApero = React.memo(function ModalApero({
   onClose: () => void;
 }) {
   const { user }  = useAuth();
-  const addMut    = useAddApero();
+  const addMut     = useAddApero();
+  const updateMut  = useUpdateApero();
   const { data: ubicaciones = [] } = useUbicaciones();
+  const { data: syncRows = [] }    = useSyncMaquinariaInventario();
   const { data: aperosExistentes = [] } = useAperos();
 
   // Catálogo local de tipos de apero + tipos base + tipos ya usados en DB
@@ -449,6 +450,12 @@ const ModalApero = React.memo(function ModalApero({
   const [saving, setSaving]           = useState(false);
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
+  useEffect(() => {
+    if (!apero?.id) return;
+    const s = syncRows.find(r => r.tipo === 'apero' && r.maquinaria_id === apero.id);
+    setForm(f => ({ ...f, ubicacion_id: s?.ubicacion_id ?? '' }));
+  }, [apero?.id, syncRows]);
+
   function handleFoto(file: File | null) {
     setFotoFile(file);
     setFotoPreview(file ? URL.createObjectURL(file) : null);
@@ -462,18 +469,32 @@ const ModalApero = React.memo(function ModalApero({
       if (fotoFile) {
         foto_url = await uploadImage(fotoFile, 'parcel-images', `maquinaria/aperos/${Date.now()}`);
       }
-      await addMut.mutateAsync({
-        tipo:           form.tipo,
-        descripcion:    form.descripcion || null,
-        tractor_id:     form.tractor_id || null,
-        activo:         true,
-        foto_url,
-        notas:          form.notas || null,
-        estado:         form.estado || 'disponible',
-        codigo_interno: apero?.codigo_interno ?? null,
-        created_by:     user?.email ?? 'sistema',
-        ubicacion_id:   form.ubicacion_id || null,
-      });
+      if (apero) {
+        await updateMut.mutateAsync({
+          id: apero.id,
+          tipo: form.tipo,
+          descripcion: form.descripcion || null,
+          tractor_id: form.tractor_id || null,
+          activo: apero.activo,
+          foto_url,
+          notas: form.notas || null,
+          estado: form.estado || 'disponible',
+          ubicacion_id: form.ubicacion_id || null,
+        });
+      } else {
+        await addMut.mutateAsync({
+          tipo:           form.tipo,
+          descripcion:    form.descripcion || null,
+          tractor_id:     form.tractor_id || null,
+          activo:         true,
+          foto_url,
+          notas:          form.notas || null,
+          estado:         form.estado || 'disponible',
+          codigo_interno: null,
+          created_by:     user?.email ?? 'sistema',
+          ubicacion_id:   form.ubicacion_id || null,
+        });
+      }
       onClose();
     } finally {
       setSaving(false);
@@ -482,13 +503,13 @@ const ModalApero = React.memo(function ModalApero({
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-md mx-4 shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-white/10">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md mx-4 shadow-2xl overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
           <Wrench className="w-5 h-5 text-orange-400" />
-          <p className="flex-1 text-[11px] font-black text-white uppercase tracking-wider">
+          <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">
             {apero ? 'Editar apero' : 'Nuevo apero'}
           </p>
-          <button onClick={onClose} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="p-5 space-y-3 max-h-[75vh] overflow-y-auto">
@@ -497,7 +518,7 @@ const ModalApero = React.memo(function ModalApero({
             <BaseInput
               value={apero?.codigo_interno ?? 'Se asignará automáticamente'}
               readOnly
-              className="text-slate-500 cursor-default"
+              className="text-muted-foreground cursor-default"
             />
           </div>
 
@@ -569,7 +590,7 @@ const ModalApero = React.memo(function ModalApero({
           </div>
         </div>
 
-        <div className="px-5 py-3 border-t border-white/10 flex gap-2">
+        <div className="px-5 py-3 border-t border-border flex gap-2">
           <button onClick={onClose} className="btn-secondary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest">
             Cancelar
           </button>
@@ -673,11 +694,11 @@ const ModalUso = React.memo(function ModalUso({
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-md mx-4 shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-white/10">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md mx-4 shadow-2xl overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
           <Activity className="w-5 h-5 text-orange-400" />
-          <p className="flex-1 text-[11px] font-black text-white uppercase tracking-wider">Registro de uso</p>
-          <button onClick={onClose} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
+          <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">Registro de uso</p>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="p-5 space-y-3 max-h-[75vh] overflow-y-auto">
@@ -802,7 +823,7 @@ const ModalUso = React.memo(function ModalUso({
           </div>
         </div>
 
-        <div className="px-5 py-3 border-t border-white/10 flex gap-2">
+        <div className="px-5 py-3 border-t border-border flex gap-2">
           <button onClick={onClose} className="btn-secondary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest">
             Cancelar
           </button>
@@ -906,11 +927,11 @@ const ModalMantenimiento = React.memo(function ModalMantenimiento({
 
   return (
     <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-md mx-4 shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-white/10">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md mx-4 shadow-2xl overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
           <Wrench className="w-5 h-5 text-orange-400" />
-          <p className="flex-1 text-[11px] font-black text-white uppercase tracking-wider">Mantenimiento tractor</p>
-          <button onClick={onClose} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
+          <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">Mantenimiento tractor</p>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="p-5 space-y-3 max-h-[75vh] overflow-y-auto">
@@ -991,7 +1012,7 @@ const ModalMantenimiento = React.memo(function ModalMantenimiento({
           </div>
         </div>
 
-        <div className="px-5 py-3 border-t border-white/10 flex gap-2">
+        <div className="px-5 py-3 border-t border-border flex gap-2">
           <button onClick={onClose} className="btn-secondary flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest">
             Cancelar
           </button>
@@ -1037,15 +1058,15 @@ const TarjetaTractor = React.memo(function TarjetaTractor({
     ? (new Date(tractor.fecha_proxima_itv).getTime() - Date.now()) / 86400000
     : null;
   const itvClase = itvDiff !== null
-    ? (itvDiff < 0 ? 'text-red-400' : itvDiff < 30 ? 'text-amber-400' : 'text-slate-400')
-    : 'text-slate-400';
+    ? (itvDiff < 0 ? 'text-red-400' : itvDiff < 30 ? 'text-amber-400' : 'text-muted-foreground')
+    : 'text-muted-foreground';
 
   const estadoOp = tractor.estado_operativo ?? 'disponible';
 
   return (
-    <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
+    <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
       <div
-        className="p-4 flex items-start gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+        className="p-4 flex items-start gap-3 cursor-pointer hover:bg-muted/40 transition-colors"
         onClick={() => setExpanded(e => !e)}
       >
         <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
@@ -1054,24 +1075,24 @@ const TarjetaTractor = React.memo(function TarjetaTractor({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             {tractor.codigo_interno && (
-              <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{tractor.codigo_interno}</span>
+              <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">{tractor.codigo_interno}</span>
             )}
-            <p className="text-[12px] font-black text-slate-900 dark:text-white uppercase">{tractor.matricula}</p>
-            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${ESTADO_OP_BADGE[estadoOp] ?? 'border-slate-500 text-slate-400'}`}>
+            <p className="text-[12px] font-black text-foreground uppercase">{tractor.matricula}</p>
+            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${ESTADO_OP_BADGE[estadoOp] ?? 'border-border text-muted-foreground'}`}>
               {ESTADO_OP_LABEL[estadoOp] ?? estadoOp}
             </span>
           </div>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500">
+          <p className="text-[10px] text-muted-foreground">
             {[tractor.marca, tractor.modelo, tractor.anio].filter(Boolean).join(' · ')}
           </p>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             {tractor.horas_motor != null && (
-              <span className="text-[9px] text-slate-400 flex items-center gap-0.5">
+              <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
                 <Clock className="w-2.5 h-2.5" />{tractor.horas_motor}h motor
               </span>
             )}
-            {totalH > 0 && <span className="text-[9px] text-slate-400">{totalH.toFixed(1)}h trabajadas</span>}
-            {misAperos.length > 0 && <span className="text-[9px] text-slate-400">{misAperos.length} apero{misAperos.length !== 1 ? 's' : ''}</span>}
+            {totalH > 0 && <span className="text-[9px] text-muted-foreground">{totalH.toFixed(1)}h trabajadas</span>}
+            {misAperos.length > 0 && <span className="text-[9px] text-muted-foreground">{misAperos.length} apero{misAperos.length !== 1 ? 's' : ''}</span>}
             {tractor.fecha_proxima_itv && (
               <span className={`text-[9px] flex items-center gap-0.5 ${itvClase}`}>
                 <Calendar className="w-2.5 h-2.5" />ITV {new Date(tractor.fecha_proxima_itv).toLocaleDateString('es-ES')}
@@ -1080,42 +1101,42 @@ const TarjetaTractor = React.memo(function TarjetaTractor({
           </div>
         </div>
         {expanded
-          ? <ChevronRight className="w-4 h-4 text-slate-400 rotate-90 transition-transform shrink-0" />
-          : <ChevronRight className="w-4 h-4 text-slate-400 transition-transform shrink-0" />
+          ? <ChevronRight className="w-4 h-4 text-muted-foreground rotate-90 transition-transform shrink-0" />
+          : <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform shrink-0" />
         }
       </div>
 
       {expanded && (
-        <div className="border-t border-slate-200 dark:border-white/10 p-4 space-y-4">
+        <div className="border-t border-border p-4 space-y-4">
           {tractor.ficha_tecnica && (
             <div>
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Ficha técnica</p>
-              <p className="text-[10px] text-slate-300">{tractor.ficha_tecnica}</p>
+              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Ficha técnica</p>
+              <p className="text-[10px] text-muted-foreground">{tractor.ficha_tecnica}</p>
             </div>
           )}
 
           {(tractor.fecha_proxima_revision || tractor.horas_proximo_mantenimiento || tractor.gps_info) && (
             <div className="grid grid-cols-2 gap-2">
               {tractor.fecha_proxima_revision && (
-                <div className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 border border-slate-200 dark:border-white/5">
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Próxima revisión</p>
-                  <p className="text-[10px] font-bold text-white mt-0.5">
+                <div className="bg-muted/50 rounded-lg p-2 border border-border">
+                  <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Próxima revisión</p>
+                  <p className="text-[10px] font-bold text-foreground mt-0.5">
                     {new Date(tractor.fecha_proxima_revision).toLocaleDateString('es-ES')}
                   </p>
                 </div>
               )}
               {tractor.horas_proximo_mantenimiento != null && (
-                <div className={`bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 border ${tractor.horas_motor != null && tractor.horas_motor >= tractor.horas_proximo_mantenimiento ? 'border-amber-500/40' : 'border-slate-200 dark:border-white/5'}`}>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Horas próx. mant.</p>
-                  <p className={`text-[10px] font-bold mt-0.5 ${tractor.horas_motor != null && tractor.horas_motor >= tractor.horas_proximo_mantenimiento ? 'text-amber-400' : 'text-white'}`}>
+                <div className={`bg-muted/50 rounded-lg p-2 border ${tractor.horas_motor != null && tractor.horas_motor >= tractor.horas_proximo_mantenimiento ? 'border-amber-500/40' : 'border-border'}`}>
+                  <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Horas próx. mant.</p>
+                  <p className={`text-[10px] font-bold mt-0.5 ${tractor.horas_motor != null && tractor.horas_motor >= tractor.horas_proximo_mantenimiento ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
                     {tractor.horas_proximo_mantenimiento}h
                   </p>
                 </div>
               )}
               {tractor.gps_info && (
-                <div className="col-span-2 bg-slate-50 dark:bg-slate-800/40 rounded-lg p-2 border border-slate-200 dark:border-white/5 flex items-center gap-2">
-                  <Navigation className="w-3 h-3 text-orange-400 shrink-0" />
-                  <p className="text-[9px] text-slate-300">{tractor.gps_info}</p>
+                <div className="col-span-2 bg-muted/50 rounded-lg p-2 border border-border flex items-center gap-2">
+                  <Navigation className="w-3 h-3 text-orange-500 dark:text-orange-400 shrink-0" />
+                  <p className="text-[9px] text-muted-foreground">{tractor.gps_info}</p>
                 </div>
               )}
             </div>
@@ -1123,10 +1144,10 @@ const TarjetaTractor = React.memo(function TarjetaTractor({
 
           {misAperos.length > 0 && (
             <div>
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Aperos asignados</p>
+              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">Aperos asignados</p>
               <div className="flex flex-wrap gap-1.5">
                 {misAperos.map(a => (
-                  <span key={a.id} className="text-[9px] font-black px-2 py-1 rounded-lg bg-orange-500/10 text-orange-300 border border-orange-500/20">
+                  <span key={a.id} className="text-[9px] font-black px-2 py-1 rounded-lg bg-orange-500/10 text-orange-700 dark:text-orange-300 border border-orange-500/20">
                     {a.codigo_interno ? `${a.codigo_interno} · ` : ''}{a.tipo}
                   </span>
                 ))}
@@ -1135,25 +1156,25 @@ const TarjetaTractor = React.memo(function TarjetaTractor({
           )}
 
           <div>
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">
+            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-2">
               Ultimos usos ({totalH.toFixed(1)}h · {totalL.toFixed(1)}L)
             </p>
             {misUsos.length === 0 ? (
-              <p className="text-[10px] text-slate-600">Sin usos registrados</p>
+              <p className="text-[10px] text-muted-foreground">Sin usos registrados</p>
             ) : (
               <div className="space-y-1.5">
                 {misUsos.slice(0, 5).map(u => (
-                  <div key={u.id} className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-white/5">
+                  <div key={u.id} className="p-2 rounded-lg bg-muted/40 border border-border">
                     <div className="flex items-center justify-between">
-                      <p className="text-[10px] font-bold text-slate-700 dark:text-white">
+                      <p className="text-[10px] font-bold text-foreground">
                         {u.tipo_trabajo ?? 'Uso'}
                       </p>
-                      <span className="text-[8px] text-slate-400">{new Date(u.fecha).toLocaleDateString('es-ES')}</span>
+                      <span className="text-[8px] text-muted-foreground">{new Date(u.fecha).toLocaleDateString('es-ES')}</span>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                      {u.finca && <span className="text-[9px] text-slate-400 flex items-center gap-0.5"><MapPin className="w-2 h-2" />{u.finca}</span>}
-                      {u.horas_trabajadas && <span className="text-[9px] text-slate-400 flex items-center gap-0.5"><Clock className="w-2 h-2" />{u.horas_trabajadas}h</span>}
-                      {u.gasolina_litros && <span className="text-[9px] text-slate-400 flex items-center gap-0.5"><Fuel className="w-2 h-2" />{u.gasolina_litros}L</span>}
+                      {u.finca && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><MapPin className="w-2 h-2" />{u.finca}</span>}
+                      {u.horas_trabajadas && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><Clock className="w-2 h-2" />{u.horas_trabajadas}h</span>}
+                      {u.gasolina_litros && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><Fuel className="w-2 h-2" />{u.gasolina_litros}L</span>}
                     </div>
                   </div>
                 ))}
@@ -1163,27 +1184,28 @@ const TarjetaTractor = React.memo(function TarjetaTractor({
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Mantenimientos</p>
+              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Mantenimientos</p>
               <button
+                type="button"
                 onClick={e => { e.stopPropagation(); setModalMant(true); }}
-                className="flex items-center gap-1 text-[9px] font-black text-orange-400 hover:text-orange-300 uppercase tracking-widest"
+                className="flex items-center gap-1 text-[9px] font-black text-orange-600 dark:text-orange-400 hover:opacity-90 uppercase tracking-widest"
               >
                 <Plus className="w-3 h-3" />Añadir
               </button>
             </div>
             {misMant.length === 0 ? (
-              <p className="text-[10px] text-slate-600">Sin mantenimientos</p>
+              <p className="text-[10px] text-muted-foreground">Sin mantenimientos</p>
             ) : (
               <div className="space-y-1">
                 {misMant.slice(0, 4).map(m => (
-                  <div key={m.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-white/5">
+                  <div key={m.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border">
                     <div>
-                      <span className="text-[9px] font-black text-white uppercase">{m.tipo}</span>
-                      {m.descripcion && <span className="text-[8px] text-slate-500 ml-2">{m.descripcion}</span>}
+                      <span className="text-[9px] font-black text-foreground uppercase">{m.tipo}</span>
+                      {m.descripcion && <span className="text-[8px] text-muted-foreground ml-2">{m.descripcion}</span>}
                     </div>
                     <div className="text-right">
-                      <p className="text-[8px] text-slate-400">{new Date(m.fecha).toLocaleDateString('es-ES')}</p>
-                      {m.horas_motor_al_momento && <p className="text-[8px] text-orange-300">{m.horas_motor_al_momento}h</p>}
+                      <p className="text-[8px] text-muted-foreground">{new Date(m.fecha).toLocaleDateString('es-ES')}</p>
+                      {m.horas_motor_al_momento && <p className="text-[8px] text-orange-600 dark:text-orange-300">{m.horas_motor_al_momento}h</p>}
                     </div>
                   </div>
                 ))}
@@ -1191,7 +1213,7 @@ const TarjetaTractor = React.memo(function TarjetaTractor({
             )}
           </div>
 
-          <hr className="border-white/5" />
+          <hr className="border-border" />
           <RecordActions
             onEdit={onEdit}
             onDelete={onDelete}
@@ -1215,13 +1237,12 @@ const TarjetaTractor = React.memo(function TarjetaTractor({
 // ── Componente principal ──────────────────────────────────────
 export default function Maquinaria() {
   const navigate  = useNavigate();
-  const { theme } = useTheme();
-  const isDark    = theme === 'dark';
 
   const [tab, setTab]                   = useState<TabType>('tractores');
   const [modalTractor, setModalTractor] = useState(false);
   const [editTractor, setEditTractor]   = useState<TractorType | undefined>();
   const [modalApero, setModalApero]     = useState(false);
+  const [editApero, setEditApero]       = useState<Apero | undefined>();
   const [modalUso, setModalUso]         = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
   const [pdfMenuOpen, setPdfMenuOpen]   = useState(false);
@@ -1239,6 +1260,10 @@ export default function Maquinaria() {
   // ── GPS State ──
   const [gpsTractorId, setGpsTractorId] = useState<string>('');
   const [gpsFecha, setGpsFecha] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [gpsManualOpen, setGpsManualOpen] = useState(false);
+  const [gpsManualLat, setGpsManualLat] = useState('');
+  const [gpsManualLng, setGpsManualLng] = useState('');
+  const [gpsManualSpeed, setGpsManualSpeed] = useState('0');
   const { data: gpsRecorrido = [], isLoading: isLoadingGps } = useRecorridoDia(gpsTractorId, gpsFecha);
   const mutAddPosicion = useAddPosicion();
   const gpsMapRef = useRef<L.Map | null>(null);
@@ -1270,7 +1295,6 @@ export default function Maquinaria() {
       subtitulo: 'Informe completo de flota y operaciones',
       fecha: ref,
       filename: `Maquinaria_Completa_${fs}.pdf`,
-      accentColor: PDF_COLORS.orange,
       bloques: [
         ctx => {
           pdfCorporateSection(ctx, 'Tractores');
@@ -1346,7 +1370,6 @@ export default function Maquinaria() {
     await generarPDFCorporativoBase({
       titulo: 'MAQUINARIA — TRACTORES', subtitulo: 'Estado de tractores',
       fecha: ref, filename: `Maquinaria_Tractores_${ref.toISOString().slice(0, 10)}.pdf`,
-      accentColor: PDF_COLORS.orange,
       bloques: [ctx => {
         pdfCorporateSection(ctx, 'Estado de tractores');
         if (tractores.length === 0) {
@@ -1371,7 +1394,6 @@ export default function Maquinaria() {
     await generarPDFCorporativoBase({
       titulo: 'MAQUINARIA — APEROS', subtitulo: 'Aperos activos',
       fecha: ref, filename: `Maquinaria_Aperos_${ref.toISOString().slice(0, 10)}.pdf`,
-      accentColor: PDF_COLORS.orange,
       bloques: [ctx => {
         pdfCorporateSection(ctx, 'Aperos activos');
         if (activos.length === 0) {
@@ -1396,7 +1418,6 @@ export default function Maquinaria() {
     await generarPDFCorporativoBase({
       titulo: 'MAQUINARIA — USO', subtitulo: 'Registros de uso',
       fecha: ref, filename: `Maquinaria_Uso_${ref.toISOString().slice(0, 10)}.pdf`,
-      accentColor: PDF_COLORS.orange,
       bloques: [ctx => {
         pdfCorporateSection(ctx, 'Uso de maquinaria');
         if (ordenados.length === 0) {
@@ -1421,7 +1442,6 @@ export default function Maquinaria() {
     await generarPDFCorporativoBase({
       titulo: 'MAQUINARIA — MANTENIMIENTO', subtitulo: 'Intervenciones en tractores',
       fecha: ref, filename: `Maquinaria_Mantenimientos_${ref.toISOString().slice(0, 10)}.pdf`,
-      accentColor: PDF_COLORS.orange,
       bloques: [ctx => {
         pdfCorporateSection(ctx, 'Mantenimientos');
         if (mants.length === 0) {
@@ -1470,7 +1490,9 @@ export default function Maquinaria() {
     if (stopsLayerRef.current) stopsLayerRef.current.clearLayers();
 
     if (gpsRecorrido.length > 0) {
-      const latlngs = gpsRecorrido.map(p => [p.latitud, p.longitud] as [number, number]);
+      const latlngs = gpsRecorrido.map(p => [Number(p.latitude), Number(p.longitude)] as [number, number])
+        .filter(([la, lo]) => Number.isFinite(la) && Number.isFinite(lo));
+      if (latlngs.length === 0) return;
       polylineRef.current = L.polyline(latlngs, { color: '#fb923c', weight: 4 }).addTo(map);
       
       // Calcular paradas (>5 min quietos)
@@ -1478,13 +1500,19 @@ export default function Maquinaria() {
       for (let i = 1; i < gpsRecorrido.length; i++) {
         const prev = gpsRecorrido[i-1];
         const curr = gpsRecorrido[i];
-        const isStopped = (curr.velocidad_kmh || 0) < 1;
+        const spd = curr.speed != null ? Number(curr.speed) : 0;
+        const isStopped = (Number.isFinite(spd) ? spd : 0) < 1;
         
         if (isStopped) {
           if (!currentStop) {
-            currentStop = { start: prev.timestamp, lat: curr.latitud, lng: curr.longitud, duration: 0 };
+            currentStop = {
+              start: prev.timestamp!,
+              lat: Number(curr.latitude),
+              lng: Number(curr.longitude),
+              duration: 0,
+            };
           }
-          currentStop.duration += new Date(curr.timestamp).getTime() - new Date(prev.timestamp).getTime();
+          currentStop.duration += new Date(curr.timestamp!).getTime() - new Date(prev.timestamp!).getTime();
         } else {
           if (currentStop && currentStop.duration > 5 * 60 * 1000) { // 5 min
             L.circleMarker([currentStop.lat, currentStop.lng], {
@@ -1504,11 +1532,11 @@ export default function Maquinaria() {
       const htmlStart = `<div style="background:#22c55e;width:12px;height:12px;border-radius:50%;border:2px solid white"></div>`;
       const htmlEnd = `<div style="background:#fb923c;width:12px;height:12px;border-radius:50%;border:2px solid white"></div>`;
       
-      L.marker([start.latitud, start.longitud], { icon: L.divIcon({ html: htmlStart, className: '' }) })
-        .bindTooltip('Inicio ' + new Date(start.timestamp).toLocaleTimeString()).addTo(stopsLayerRef.current!);
+      L.marker([Number(start.latitude), Number(start.longitude)], { icon: L.divIcon({ html: htmlStart, className: '' }) })
+        .bindTooltip('Inicio ' + new Date(start.timestamp!).toLocaleTimeString()).addTo(stopsLayerRef.current!);
         
-      L.marker([end.latitud, end.longitud], { icon: L.divIcon({ html: htmlEnd, className: '' }) })
-        .bindTooltip('Fin ' + new Date(end.timestamp).toLocaleTimeString()).addTo(stopsLayerRef.current!);
+      L.marker([Number(end.latitude), Number(end.longitude)], { icon: L.divIcon({ html: htmlEnd, className: '' }) })
+        .bindTooltip('Fin ' + new Date(end.timestamp!).toLocaleTimeString()).addTo(stopsLayerRef.current!);
 
       map.fitBounds(polylineRef.current.getBounds(), { padding: [30, 30] });
     }
@@ -1517,21 +1545,22 @@ export default function Maquinaria() {
   // ── Render ──────────────────────────────────────────────────
 
   return (
-    <div className={`min-h-screen flex flex-col ${isDark ? 'bg-[#020617] text-white' : 'bg-slate-50 text-slate-900'}`}>
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
 
       {/* HEADER */}
-      <header className="w-full bg-white/90 dark:bg-slate-900/80 border-b border-slate-200 dark:border-white/10 pl-14 pr-4 py-2 flex items-center gap-3 z-50">
-        <button onClick={() => navigate('/dashboard')} className="flex items-center gap-1.5 text-slate-400 hover:text-[#6d9b7d] transition-colors">
+      <header className="w-full bg-card/95 backdrop-blur-md border-b border-border pl-14 pr-4 py-2 flex items-center gap-3 z-50">
+        <button type="button" onClick={() => navigate('/dashboard')} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4" />
           <span className="text-[9px] font-black uppercase tracking-widest">Dashboard</span>
         </button>
-        <span className="text-slate-200 dark:text-slate-700">|</span>
-        <Tractor className="w-4 h-4 text-orange-400" />
-        <span className="text-[11px] font-black uppercase tracking-wider text-slate-800 dark:text-white">Maquinaria</span>
+        <span className="text-muted-foreground/70">|</span>
+        <Tractor className="w-4 h-4 text-orange-500 dark:text-orange-400" />
+        <span className="text-[11px] font-black uppercase tracking-wider text-foreground">Maquinaria</span>
         <div className="ml-auto flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setModalUso(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[9px] font-black uppercase tracking-widest hover:bg-orange-500/20 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-400 text-[9px] font-black uppercase tracking-widest hover:bg-orange-500/20 transition-colors"
           >
             <Plus className="w-3 h-3" />Uso
           </button>
@@ -1548,9 +1577,7 @@ export default function Maquinaria() {
               PDF {pdfMenuOpen ? '▲' : '▼'}
             </button>
             {pdfMenuOpen && (
-              <div className={`absolute right-0 top-full z-[70] mt-1 min-w-[240px] rounded-lg border shadow-lg py-1 ${
-                isDark ? 'border-slate-600 bg-slate-900 text-slate-100 shadow-black/40' : 'border-slate-200 bg-white text-slate-800 shadow-slate-400/20'
-              }`}>
+              <div className="absolute right-0 top-full z-[70] mt-1 min-w-[240px] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg py-1">
                 {([
                   { k: 1, label: 'Informe completo maquinaria' },
                   { k: 2, label: 'Estado de tractores' },
@@ -1561,9 +1588,7 @@ export default function Maquinaria() {
                   <button
                     key={k} type="button" disabled={generandoPdf}
                     onClick={() => onElegirPdf(k)}
-                    className={`w-full px-3 py-2.5 text-left text-xs font-medium transition-colors disabled:opacity-50 ${
-                      isDark ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-slate-50 text-slate-800'
-                    }`}
+                    className="w-full px-3 py-2.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
                   >
                     {label}
                   </button>
@@ -1584,26 +1609,26 @@ export default function Maquinaria() {
             { label: 'H. totales', value: kpis?.totalHoras ?? '0',     color: '#34d399' },
             { label: 'Gasoil (L)', value: kpis?.totalGasolina ?? '0',  color: '#60a5fa' },
           ].map(kpi => (
-            <div key={kpi.label} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-xl p-3 text-center">
-              <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{kpi.label}</p>
+            <div key={kpi.label} className="bg-card/90 border border-border rounded-xl p-3 text-center shadow-sm">
+              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{kpi.label}</p>
               <p className="text-2xl font-black" style={{ color: kpi.color }}>{kpi.value}</p>
             </div>
           ))}
         </div>
 
         {/* TABS */}
-        <div className="flex gap-1 mb-5 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-xl p-1">
+        <div className="flex gap-1 mb-5 bg-muted/50 border border-border rounded-xl p-1">
           {([
             { id: 'tractores' as TabType, label: 'Tractores',    icon: Tractor  },
             { id: 'aperos'    as TabType, label: 'Aperos',       icon: Wrench   },
             { id: 'uso'       as TabType, label: 'Registros uso', icon: Activity },
             { id: 'gps'       as TabType, label: 'GPS / Recorridos', icon: Navigation },
           ]).map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
+            <button key={t.id} type="button" onClick={() => setTab(t.id)}
               className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors ${
                 tab === t.id
-                  ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
-                  : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                  ? 'bg-orange-500/15 text-orange-700 dark:text-orange-400 border border-orange-500/25'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <t.icon className="w-3.5 h-3.5 inline mr-1.5" />
@@ -1616,17 +1641,17 @@ export default function Maquinaria() {
         {tab === 'tractores' && (
           <>
             <div className="flex justify-between items-center mb-4">
-              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                 {tractores.length} tractor{tractores.length !== 1 ? 'es' : ''}
               </p>
-              <button onClick={() => { setEditTractor(undefined); setModalTractor(true); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[9px] font-black uppercase tracking-widest hover:bg-orange-500/20 transition-colors">
+              <button type="button" onClick={() => { setEditTractor(undefined); setModalTractor(true); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-400 text-[9px] font-black uppercase tracking-widest hover:bg-orange-500/20 transition-colors">
                 <Plus className="w-3 h-3" />Nuevo
               </button>
             </div>
             <div className="space-y-3">
               {tractores.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 dark:text-slate-600">
+                <div className="text-center py-12 text-muted-foreground">
                   <Tractor className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   <p className="text-xs font-black uppercase tracking-widest">Sin tractores</p>
                 </div>
@@ -1651,17 +1676,20 @@ export default function Maquinaria() {
         {tab === 'aperos' && (
           <>
             <div className="flex justify-between items-center mb-4">
-              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                 {aperos.length} apero{aperos.length !== 1 ? 's' : ''}
               </p>
-              <button onClick={() => setModalApero(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[9px] font-black uppercase tracking-widest hover:bg-orange-500/20 transition-colors">
+              <button
+                type="button"
+                onClick={() => { setEditApero(undefined); setModalApero(true); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-400 text-[9px] font-black uppercase tracking-widest hover:bg-orange-500/20 transition-colors"
+              >
                 <Plus className="w-3 h-3" />Nuevo
               </button>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {aperos.length === 0 ? (
-                <div className="col-span-2 text-center py-12 text-slate-400 dark:text-slate-600">
+                <div className="col-span-2 text-center py-12 text-muted-foreground">
                   <Wrench className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   <p className="text-xs font-black uppercase tracking-widest">Sin aperos</p>
                 </div>
@@ -1670,28 +1698,28 @@ export default function Maquinaria() {
                   const tractor = tractores.find(t => t.id === a.tractor_id);
                   const estadoA = a.estado ?? (a.activo ? 'disponible' : 'baja');
                   return (
-                    <div key={a.id} className="p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/50">
+                    <div key={a.id} className="p-3 rounded-xl border border-border bg-card shadow-sm">
                       <div className="flex items-center gap-2 mb-1">
-                        <Wrench className="w-4 h-4 text-orange-400 shrink-0" />
+                        <Wrench className="w-4 h-4 text-orange-500 dark:text-orange-400 shrink-0" />
                         <div className="flex-1 min-w-0">
                           {a.codigo_interno && (
-                            <span className="text-[8px] font-black text-slate-500 mr-1">{a.codigo_interno}</span>
+                            <span className="text-[8px] font-black text-muted-foreground mr-1">{a.codigo_interno}</span>
                           )}
-                          <p className="text-[11px] font-black text-slate-900 dark:text-white inline">{a.tipo}</p>
+                          <p className="text-[11px] font-black text-foreground inline">{a.tipo}</p>
                         </div>
-                        <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${ESTADO_OP_BADGE[estadoA] ?? 'border-slate-500 text-slate-400'}`}>
+                        <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${ESTADO_OP_BADGE[estadoA] ?? 'border-border text-muted-foreground'}`}>
                           {ESTADO_OP_LABEL[estadoA] ?? estadoA}
                         </span>
                       </div>
-                      {a.descripcion && <p className="text-[9px] text-slate-400 dark:text-slate-500 mb-1">{a.descripcion}</p>}
+                      {a.descripcion && <p className="text-[9px] text-muted-foreground mb-1">{a.descripcion}</p>}
                       {tractor && (
-                        <p className="text-[9px] text-orange-300 flex items-center gap-1 mb-2">
+                        <p className="text-[9px] text-orange-700 dark:text-orange-300 flex items-center gap-1 mb-2">
                           <Tractor className="w-3 h-3" />
                           {tractor.codigo_interno ? `${tractor.codigo_interno} · ` : ''}{tractor.matricula}
                         </p>
                       )}
                       <RecordActions
-                        onEdit={() => {}}
+                        onEdit={() => { setEditApero(a); setModalApero(true); }}
                         onDelete={() => deleteAperoMut.mutate(a.id)}
                         confirmMessage={`¿Eliminar el apero ${a.tipo}?`}
                       />
@@ -1707,17 +1735,17 @@ export default function Maquinaria() {
         {tab === 'uso' && (
           <>
             <div className="flex justify-between items-center mb-4">
-              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                 {usos.length} registro{usos.length !== 1 ? 's' : ''}
               </p>
-              <button onClick={() => setModalUso(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[9px] font-black uppercase tracking-widest hover:bg-orange-500/20 transition-colors">
+              <button type="button" onClick={() => setModalUso(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-400 text-[9px] font-black uppercase tracking-widest hover:bg-orange-500/20 transition-colors">
                 <Plus className="w-3 h-3" />Nuevo
               </button>
             </div>
             <div className="space-y-2">
               {usos.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 dark:text-slate-600">
+                <div className="text-center py-12 text-muted-foreground">
                   <Activity className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   <p className="text-xs font-black uppercase tracking-widest">Sin registros de uso</p>
                 </div>
@@ -1727,47 +1755,47 @@ export default function Maquinaria() {
                   const apero   = aperos.find(a => a.id === u.apero_id);
                   const operario = personalTractoristas.find(p => p.id === u.personal_id);
                   return (
-                    <div key={u.id} className="p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800/40">
+                    <div key={u.id} className="p-3 rounded-lg border border-border bg-card shadow-sm">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-[11px] font-bold text-slate-800 dark:text-white">
+                        <p className="text-[11px] font-bold text-foreground">
                           {u.tipo_trabajo ?? 'Uso'}
                         </p>
-                        <span className="text-[8px] text-slate-400 shrink-0">
+                        <span className="text-[8px] text-muted-foreground shrink-0">
                           {new Date(u.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
                         {tractor && (
-                          <span className="text-[9px] text-orange-300 flex items-center gap-0.5">
+                          <span className="text-[9px] text-orange-700 dark:text-orange-300 flex items-center gap-0.5">
                             <Tractor className="w-2.5 h-2.5" />
                             {tractor.codigo_interno ? `${tractor.codigo_interno} · ` : ''}{tractor.matricula}
                           </span>
                         )}
                         {apero && (
-                          <span className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                          <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
                             <Wrench className="w-2.5 h-2.5" />{apero.tipo}
                           </span>
                         )}
                         {operario && (
-                          <span className="text-[9px] text-slate-400">{operario.nombre}</span>
+                          <span className="text-[9px] text-muted-foreground">{operario.nombre}</span>
                         )}
                         {u.finca && (
-                          <span className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                          <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
                             <MapPin className="w-2.5 h-2.5" />{u.finca}
                           </span>
                         )}
                         {u.horas_trabajadas && (
-                          <span className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                          <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
                             <Clock className="w-2.5 h-2.5" />{u.horas_trabajadas}h
                           </span>
                         )}
                         {u.gasolina_litros && (
-                          <span className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                          <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
                             <Fuel className="w-2.5 h-2.5" />{u.gasolina_litros}L
                           </span>
                         )}
                       </div>
-                      {u.notas && <p className="text-[9px] text-slate-500 italic mt-1">{u.notas}</p>}
+                      {u.notas && <p className="text-[9px] text-muted-foreground italic mt-1">{u.notas}</p>}
                     </div>
                   );
                 })
@@ -1779,7 +1807,7 @@ export default function Maquinaria() {
         {/* TAB GPS / RECORRIDOS */}
         {tab === 'gps' && (
           <div className="space-y-4">
-            <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4 flex flex-col sm:flex-row gap-4 relative overflow-hidden">
+            <div className="bg-card border border-border rounded-xl p-4 flex flex-col sm:flex-row gap-4 relative overflow-hidden shadow-sm">
               <div className="absolute top-0 left-0 w-1 h-full bg-[#fb923c]" />
               <div className="flex-1">
                 <FieldLabel>Tractor a monitorear</FieldLabel>
@@ -1794,59 +1822,139 @@ export default function Maquinaria() {
               </div>
             </div>
             
-            <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 flex items-start gap-3">
-              <Activity className="w-5 h-5 text-orange-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-bold text-orange-400">Infraestructura Telemetría GPS</p>
-                <p className="text-[10px] text-orange-300/80 mt-1">
-                  Hardware Teltonika FMC920 pendiente de instalación física. 
-                  Los recorridos mostrados pueden alimentarse manualmente o vía Edge Function API desde el proveedor.
+            <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 flex flex-col gap-3 sm:flex-row sm:items-start">
+              <Activity className="w-5 h-5 text-orange-400 shrink-0 mt-0.5 hidden sm:block" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-orange-400">Telemetría GPS (Teltonika / manual)</p>
+                <p className="text-[10px] text-orange-300/80 mt-1 leading-relaxed">
+                  Los puntos se guardan en Supabase, tabla <span className="font-mono text-orange-200/90">vehicle_positions</span>, con{' '}
+                  <span className="font-mono">vehicle_id</span> = UUID del tractor en Marvic,{' '}
+                  <span className="font-mono">latitude</span>, <span className="font-mono">longitude</span>,{' '}
+                  <span className="font-mono">speed</span>, <span className="font-mono">vehicle_type</span> (<span className="font-mono">tractor</span>) y{' '}
+                  <span className="font-mono">timestamp</span>. Integración real: una Edge Function (webhook HTTP del FMC920 o del servidor Teltonika) que inserte filas con esos campos, o importación periódica desde la API del proveedor.
                 </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGpsManualOpen(o => !o)}
+                    disabled={!gpsTractorId}
+                    className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-orange-500/40 bg-orange-500/15 text-orange-200 hover:bg-orange-500/25 disabled:opacity-40 transition-colors"
+                  >
+                    {gpsManualOpen ? 'Cerrar formulario' : 'Registrar posición manual'}
+                  </button>
+                  {gpsTractorId && gpsFecha === new Date().toISOString().slice(0, 10) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        mutAddPosicion.mutate({
+                          vehicle_id: gpsTractorId,
+                          vehicle_type: 'tractor',
+                          latitude: 38.2 + Math.random() * 0.05,
+                          longitude: -0.9 + Math.random() * 0.05,
+                          speed: Math.floor(Math.random() * 25),
+                          timestamp: new Date().toISOString(),
+                        })
+                      }
+                      className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+                    >
+                      Punto de prueba (demo)
+                    </button>
+                  )}
+                </div>
+                {gpsManualOpen && gpsTractorId && (
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <FieldLabel>Latitud</FieldLabel>
+                      <BaseInput
+                        type="number"
+                        step="any"
+                        value={gpsManualLat}
+                        onChange={e => setGpsManualLat(e.target.value)}
+                        placeholder="Ej: 38.234"
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel>Longitud</FieldLabel>
+                      <BaseInput
+                        type="number"
+                        step="any"
+                        value={gpsManualLng}
+                        onChange={e => setGpsManualLng(e.target.value)}
+                        placeholder="Ej: -0.912"
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel>Velocidad (km/h)</FieldLabel>
+                      <BaseInput
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={gpsManualSpeed}
+                        onChange={e => setGpsManualSpeed(e.target.value)}
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <button
+                        type="button"
+                        disabled={mutAddPosicion.isPending}
+                        onClick={() => {
+                          const lat = parseFloat(gpsManualLat.replace(',', '.'));
+                          const lng = parseFloat(gpsManualLng.replace(',', '.'));
+                          const spd = parseFloat((gpsManualSpeed || '0').replace(',', '.'));
+                          if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                            toast({ title: 'Coordenadas no válidas', variant: 'destructive' });
+                            return;
+                          }
+                          mutAddPosicion.mutate({
+                            vehicle_id: gpsTractorId,
+                            vehicle_type: 'tractor',
+                            latitude: lat,
+                            longitude: lng,
+                            speed: Number.isFinite(spd) ? spd : 0,
+                            timestamp: new Date().toISOString(),
+                          });
+                          setGpsManualLat('');
+                          setGpsManualLng('');
+                          setGpsManualSpeed('0');
+                        }}
+                        className="w-full sm:w-auto mt-1 py-2 px-4 rounded-lg bg-[#6d9b7d]/25 border border-[#6d9b7d]/50 text-[10px] font-black uppercase tracking-widest text-[#6d9b7d] hover:bg-[#6d9b7d]/35 disabled:opacity-50"
+                      >
+                        Guardar en recorrido
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              {gpsTractorId && gpsFecha === new Date().toISOString().slice(0, 10) && (
-                <button
-                  onClick={() => mutAddPosicion.mutate({
-                    vehicle_id: gpsTractorId,
-                    vehicle_tipo: 'tractor',
-                    latitud: 38.2 + (Math.random() * 0.05),
-                    longitud: -0.9 + (Math.random() * 0.05),
-                    velocidad_kmh: Math.floor(Math.random() * 25)
-                  })}
-                  className="ml-auto shrink-0 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  Simular Ping
-                </button>
-              )}
             </div>
 
             {isLoadingGps ? (
-              <div className="h-[500px] bg-slate-900/50 rounded-xl border border-white/5 flex items-center justify-center">
+              <div className="h-[500px] bg-muted/50 rounded-xl border border-border flex items-center justify-center">
                 <span className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
               </div>
             ) : !gpsTractorId ? (
-              <div className="h-[500px] bg-slate-900/50 rounded-xl border border-white/5 flex flex-col items-center justify-center text-slate-500">
+              <div className="h-[500px] bg-muted/50 rounded-xl border border-border flex flex-col items-center justify-center text-muted-foreground">
                 <Navigation className="w-12 h-12 mb-3 opacity-20" />
                 <p className="text-sm font-bold">Selecciona un tractor para ver su recorrido</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-[500px]">
-                <div className="lg:col-span-3 rounded-xl overflow-hidden border border-white/10 z-0 bg-slate-900">
+                <div className="lg:col-span-3 rounded-xl overflow-hidden border border-border z-0 bg-[#1a2820] dark:bg-[#0f1a14]">
                   <div ref={gpsMapContainerRef} className="w-full h-full" />
                 </div>
-                <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4 flex flex-col">
-                  <h3 className="text-[11px] font-black text-[#fb923c] uppercase tracking-widest mb-4">Resumen del Día</h3>
+                <div className="bg-card border border-border rounded-xl p-4 flex flex-col shadow-sm">
+                  <h3 className="text-[11px] font-black text-orange-600 dark:text-[#fb923c] uppercase tracking-widest mb-4">Resumen del Día</h3>
                   <div className="space-y-4 flex-1">
                     <div>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-widest">Puntos Registrados</p>
-                      <p className="text-lg font-black text-white">{gpsRecorrido.length}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Puntos Registrados</p>
+                      <p className="text-lg font-black text-foreground">{gpsRecorrido.length}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-widest">Primera Lectura</p>
-                      <p className="text-sm font-bold text-slate-300">{gpsRecorrido.length > 0 ? new Date(gpsRecorrido[0].timestamp).toLocaleTimeString() : '—'}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Primera Lectura</p>
+                      <p className="text-sm font-bold text-foreground">{gpsRecorrido.length > 0 ? new Date(gpsRecorrido[0].timestamp).toLocaleTimeString() : '—'}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-widest">Última Lectura</p>
-                      <p className="text-sm font-bold text-slate-300">{gpsRecorrido.length > 0 ? new Date(gpsRecorrido[gpsRecorrido.length - 1].timestamp).toLocaleTimeString() : '—'}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Última Lectura</p>
+                      <p className="text-sm font-bold text-foreground">{gpsRecorrido.length > 0 ? new Date(gpsRecorrido[gpsRecorrido.length - 1].timestamp).toLocaleTimeString() : '—'}</p>
                     </div>
                   </div>
                 </div>
@@ -1863,7 +1971,12 @@ export default function Maquinaria() {
         />
       )}
       {modalApero && (
-        <ModalApero tractores={tractores} onClose={() => setModalApero(false)} />
+        <ModalApero
+          key={editApero?.id ?? 'nuevo-apero'}
+          apero={editApero}
+          tractores={tractores}
+          onClose={() => { setModalApero(false); setEditApero(undefined); }}
+        />
       )}
       {modalUso && (
         <ModalUso

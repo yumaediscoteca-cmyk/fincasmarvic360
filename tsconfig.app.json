@@ -5,6 +5,8 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+    /* Solo tipos globales de Vite; evita que el IDE cargue todo node_modules/@types (estree, geojson, node, etc.) */
+    "types": ["vite/client"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",

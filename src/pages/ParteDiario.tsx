@@ -21,8 +21,14 @@ import { FormTrabajosRealizado } from '@/components/ParteDiario/FormTrabajosReal
 import { FormAnotacionesLibres } from '@/components/ParteDiario/FormAnotacionesLibres'
 import { FormLogisticaResiduos } from '@/components/ParteDiario/FormLogisticaResiduos'
 import { formatHora } from '@/utils/dateFormat'
-import { loadPdfImage, type PdfImage } from '@/utils/pdfUtils'
-import { useTheme } from '@/context/ThemeContext'
+import {
+  loadPdfImage,
+  type PdfImage,
+  paintMarvicLetterhead,
+  applyCorporateFootersAllPages,
+  PDF_BRAND,
+  registerMontserratLetterheadFonts,
+} from '@/utils/pdfUtils'
 import { ejecutarCosechaDiaria } from '@/utils/liaCosechadora'
 import { ESTADOS_PARCELA } from '@/constants/estadosParcela'
 import jsPDF from 'jspdf'
@@ -125,13 +131,14 @@ function collectNombresPersonal(entradas: EntradaPDF[]): string {
  * Motor de formato corporativo ejecutivo para todos los PDFs del Parte Diario.
  * Cabecera por página, pie con firma y numeración; contenido sobre fondo blanco.
  */
-function generarPDFCorporativo(
+async function generarPDFCorporativo(
   tituloInforme: string,
   subtituloInforme: string,
   fechaISO: string,
   logoData: PdfImage | null,
 ) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  await registerMontserratLetterheadFonts(doc)
   const M = 14
   const PAGE_W = 210
   const PAGE_H = 297
@@ -143,39 +150,14 @@ function generarPDFCorporativo(
   let y = M
   const fechaLarga = formatFechaEjecutiva(fechaISO)
 
-  function drawPageBackground() {
+  function drawHeader() {
     doc.setFillColor(255, 255, 255)
     doc.rect(0, 0, PAGE_W, PAGE_H, 'F')
-  }
-
-  function drawHeader() {
-    drawPageBackground()
-    const top = M
-    let bandBottom = top
-    if (logoData) {
-      const logoW = 45
-      const logoH = Math.min(logoW * (logoData.natH / logoData.natW), 22)
-      doc.setFillColor(255, 255, 255)
-      doc.rect(M - 0.5, top - 0.5, logoW + 1, logoH + 1, 'F')
-      doc.addImage(logoData.b64, 'JPEG', M, top, logoW, logoH)
-      bandBottom = Math.max(bandBottom, top + logoH)
-    }
-    const right = PAGE_W - M
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(14)
-    doc.setTextColor(0, 0, 0)
-    doc.text(tituloInforme.toUpperCase(), right, top + 4, { align: 'right' })
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    doc.setTextColor(100, 116, 139)
-    doc.text(subtituloInforme, right, top + 9, { align: 'right' })
-    doc.text(fechaLarga, right, top + 14, { align: 'right' })
-    bandBottom = Math.max(bandBottom, top + 16)
-    y = bandBottom + 2
-    doc.setDrawColor(200, 200, 200)
-    doc.setLineWidth(0.35)
-    doc.line(M, y, PAGE_W - M, y)
-    y += 5
+    y = paintMarvicLetterhead(doc, logoData, {
+      titulo: tituloInforme,
+      subtitulo: subtituloInforme,
+      fechaTexto: fechaLarga,
+    })
   }
 
   function checkPage(need: number) {
@@ -196,16 +178,16 @@ function generarPDFCorporativo(
       const valueLines = doc.splitTextToSize(row.value, TW - 56) as string[]
       const linesH = Math.max(1, valueLines.length) * 4.2 + 2
       checkPage(linesH + rowH)
-      const fill = stripe % 2 === 0 ? [255, 255, 255] : [248, 250, 252]
+      const fill = stripe % 2 === 0 ? [255, 255, 255] : [...PDF_BRAND.rowAlt]
       doc.setFillColor(fill[0], fill[1], fill[2])
       doc.rect(M, y - 4.5, TW, Math.max(rowH, linesH + 1), 'F')
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
-      doc.setTextColor(100, 116, 139)
+      doc.setTextColor(...PDF_BRAND.muted)
       doc.text(row.label, labelX, y)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(10)
-      doc.setTextColor(0, 0, 0)
+      doc.setTextColor(...PDF_BRAND.green)
       let yy = y
       valueLines.forEach((line, i) => {
         if (i > 0) {
@@ -223,7 +205,7 @@ function generarPDFCorporativo(
 
   function addSectionHeader(letra: string, titulo: string, horario: string) {
     checkPage(10)
-    doc.setFillColor(30, 41, 59)
+    doc.setFillColor(...PDF_BRAND.green)
     doc.rect(M, y, TW, 7, 'F')
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
@@ -231,7 +213,7 @@ function generarPDFCorporativo(
     const extra = horario ? `  ${horario}` : ''
     doc.text(`[${letra}] ${titulo.toUpperCase()}${extra}`, M + 2, y + 4.8)
     y += 9
-    doc.setTextColor(0, 0, 0)
+    doc.setTextColor(...PDF_BRAND.green)
   }
 
   let pairStripe = 0
@@ -245,16 +227,16 @@ function generarPDFCorporativo(
     const lines = doc.splitTextToSize(String(value), TW - 58) as string[]
     const blockH = 5 + lines.length * 4
     checkPage(blockH + 2)
-    const fill = pairStripe % 2 === 0 ? [255, 255, 255] : [248, 250, 252]
+    const fill = pairStripe % 2 === 0 ? [255, 255, 255] : [...PDF_BRAND.rowAlt]
     doc.setFillColor(fill[0], fill[1], fill[2])
     doc.rect(M, y - 4, TW, blockH + 1, 'F')
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
-    doc.setTextColor(100, 116, 139)
+    doc.setTextColor(...PDF_BRAND.muted)
     doc.text(label, M + 2, y)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10)
-    doc.setTextColor(0, 0, 0)
+    doc.setTextColor(...PDF_BRAND.green)
     let yy = y
     lines.forEach((ln, i) => {
       if (i > 0) {
@@ -280,7 +262,7 @@ function generarPDFCorporativo(
     if (pie) {
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(8)
-      doc.setTextColor(100, 116, 139)
+      doc.setTextColor(...PDF_BRAND.muted)
       const capLines = doc.splitTextToSize(pie, TW) as string[]
       capLines.forEach(ln => {
         checkPage(4)
@@ -300,7 +282,7 @@ function generarPDFCorporativo(
     const c2 = M + 24
     const c3 = M + 138
     const headerH = 6
-    doc.setFillColor(30, 41, 59)
+    doc.setFillColor(...PDF_BRAND.green)
     doc.rect(M, y, TW, headerH, 'F')
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
@@ -314,14 +296,14 @@ function generarPDFCorporativo(
       const actLines = doc.splitTextToSize(f.actividad, 108) as string[]
       const rowH = Math.max(6, actLines.length * 3.8 + 2)
       checkPage(rowH + 1)
-      const fill = stripe % 2 === 0 ? [255, 255, 255] : [248, 250, 252]
+      const fill = stripe % 2 === 0 ? [255, 255, 255] : [...PDF_BRAND.rowAlt]
       doc.setFillColor(fill[0], fill[1], fill[2])
       doc.rect(M, y - 1, TW, rowH, 'F')
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
-      doc.setTextColor(100, 116, 139)
+      doc.setTextColor(...PDF_BRAND.muted)
       doc.text(f.hora, c1, y + 3.5)
-      doc.setTextColor(0, 0, 0)
+      doc.setTextColor(...PDF_BRAND.green)
       let yy = y + 3.5
       actLines.forEach(ln => {
         doc.text(ln, c2, yy)
@@ -331,14 +313,14 @@ function generarPDFCorporativo(
       if (f.estado === 'INCIDENCIA') {
         doc.setTextColor(239, 68, 68)
       } else {
-        doc.setTextColor(0, 0, 0)
+        doc.setTextColor(...PDF_BRAND.green)
       }
       doc.text(f.estado, c3, y + 3.5)
       y += rowH
       stripe++
     }
     y += 3
-    doc.setTextColor(0, 0, 0)
+    doc.setTextColor(...PDF_BRAND.green)
   }
 
   /** Tabla planning: Nº | TAREA | RESPONSABLE | PRIORIDAD */
@@ -351,7 +333,7 @@ function generarPDFCorporativo(
     const colR = M + 95
     const colP = M + 155
     const headerH = 6
-    doc.setFillColor(30, 41, 59)
+    doc.setFillColor(...PDF_BRAND.green)
     doc.rect(M, y, TW, headerH, 'F')
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
@@ -366,12 +348,12 @@ function generarPDFCorporativo(
       const tLines = doc.splitTextToSize(f.tarea, 75) as string[]
       const rowH = Math.max(6, tLines.length * 3.8 + 2)
       checkPage(rowH + 1)
-      const fill = stripe % 2 === 0 ? [255, 255, 255] : [248, 250, 252]
+      const fill = stripe % 2 === 0 ? [255, 255, 255] : [...PDF_BRAND.rowAlt]
       doc.setFillColor(fill[0], fill[1], fill[2])
       doc.rect(M, y - 1, TW, rowH, 'F')
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
-      doc.setTextColor(0, 0, 0)
+      doc.setTextColor(...PDF_BRAND.green)
       doc.text(String(f.num), colN, y + 3.5)
       let yy = y + 3.5
       tLines.forEach(ln => {
@@ -383,21 +365,21 @@ function generarPDFCorporativo(
       if (f.prioridad === 'ALTA') {
         doc.setTextColor(239, 68, 68)
       } else {
-        doc.setTextColor(51, 65, 85)
+        doc.setTextColor(...PDF_BRAND.muted)
       }
       doc.text(f.prioridad, colP, y + 3.5)
       y += rowH
       stripe++
     }
     y += 3
-    doc.setTextColor(0, 0, 0)
+    doc.setTextColor(...PDF_BRAND.green)
   }
 
   function addMutedParagraph(texto: string) {
     checkPage(12)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
-    doc.setTextColor(100, 116, 139)
+    doc.setTextColor(...PDF_BRAND.muted)
     const lines = doc.splitTextToSize(texto, TW) as string[]
     lines.forEach(ln => {
       checkPage(5)
@@ -408,22 +390,7 @@ function generarPDFCorporativo(
   }
 
   function finalize(filename: string) {
-    const total = doc.getNumberOfPages()
-    const pieFecha = new Date(fechaISO + 'T12:00:00').toLocaleDateString('es-ES', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-    })
-    for (let i = 1; i <= total; i++) {
-      doc.setPage(i)
-      doc.setDrawColor(200, 200, 200)
-      doc.setLineWidth(0.25)
-      doc.line(M, FOOTER_LINE_Y, PAGE_W - M, FOOTER_LINE_Y)
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(8)
-      doc.setTextColor(71, 85, 105)
-      const left = `Firmado: JuanPe — Dirección Técnica de Campo  |  Agrícola Marvic 360  |  ${pieFecha}`
-      doc.text(left, M, FOOTER_TEXT_Y)
-      doc.text(`Página ${i} de ${total}`, PAGE_W - M, FOOTER_TEXT_Y, { align: 'right' })
-    }
+    applyCorporateFootersAllPages(doc, new Date(fechaISO + 'T12:00:00'))
     doc.save(filename)
   }
 
@@ -448,7 +415,6 @@ function generarPDFCorporativo(
 
 export default function ParteDiario() {
   const navigate = useNavigate()
-  const { theme } = useTheme()
   const pdfMenuRef = useRef<HTMLDivElement>(null)
   const [fecha, setFecha]           = useState(HOY)
   const [generandoPdf, setGenPdf]   = useState(false)
@@ -563,7 +529,7 @@ export default function ParteDiario() {
     setGenPdf(true)
     try {
       const logoData = await loadPdfImage(`${window.location.origin}/MARVIC_logo.png`)
-      const pdf = generarPDFCorporativo(
+      const pdf = await generarPDFCorporativo(
         'PARTE DIARIO',
         'Informe integral de la jornada',
         fecha,
@@ -650,7 +616,7 @@ export default function ParteDiario() {
     setGenPdf(true)
     try {
       const logoData = await loadPdfImage(`${window.location.origin}/MARVIC_logo.png`)
-      const pdf = generarPDFCorporativo(
+      const pdf = await generarPDFCorporativo(
         'INCIDENCIAS DE JORNADA',
         'Consolidado de incidencias del día',
         fecha,
@@ -697,7 +663,7 @@ export default function ParteDiario() {
     setGenPdf(true)
     try {
       const logoData = await loadPdfImage(`${window.location.origin}/MARVIC_logo.png`)
-      const pdf = generarPDFCorporativo(
+      const pdf = await generarPDFCorporativo(
         'RESIDUOS VEGETALES',
         'Registro de movimientos del día',
         fecha,
@@ -732,7 +698,7 @@ export default function ParteDiario() {
     setGenPdf(true)
     try {
       const logoData = await loadPdfImage(`${window.location.origin}/MARVIC_logo.png`)
-      const pdf = generarPDFCorporativo(
+      const pdf = await generarPDFCorporativo(
         'PARTE PERSONAL JUANPE',
         'Registro cronológico de actividades',
         fecha,
@@ -770,7 +736,7 @@ export default function ParteDiario() {
     try {
       const logoData = await loadPdfImage(`${window.location.origin}/MARVIC_logo.png`)
       const { manana, tareas } = await fetchPlanningManana(fecha)
-      const pdf = generarPDFCorporativo(
+      const pdf = await generarPDFCorporativo(
         'PLANNING OPERATIVO',
         `Tareas previstas — ${formatFechaEjecutiva(manana)}`,
         manana,
@@ -810,19 +776,20 @@ export default function ParteDiario() {
   // ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
 
       {/* ── CABECERA ── */}
-      <header className="bg-slate-900/80 border-b border-white/10 pl-14 pr-4 py-2.5 flex flex-col gap-2 max-md:items-stretch md:flex-row md:flex-wrap md:items-center md:gap-3">
+      <header className="bg-card/95 backdrop-blur-md border-b border-border pl-14 pr-4 py-2.5 flex flex-col gap-2 max-md:items-stretch md:flex-row md:flex-wrap md:items-center md:gap-3">
         <button
+          type="button"
           onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="text-[10px] font-black uppercase tracking-widest">Volver</span>
         </button>
 
-        <div className="w-px h-4 bg-white/10" />
+        <div className="w-px h-4 bg-border" aria-hidden />
 
         <span className="text-[10px] font-black uppercase tracking-widest text-[#6d9b7d]">
           Parte Diario
@@ -850,13 +817,7 @@ export default function ParteDiario() {
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${pdfMenuOpen ? 'rotate-180' : ''}`} />
           </button>
           {pdfMenuOpen && (
-            <div
-              className={`absolute right-0 top-full z-[70] mt-1 min-w-[280px] rounded-lg border shadow-lg py-1 ${
-                theme === 'dark'
-                  ? 'border-slate-600 bg-slate-900 text-slate-100 shadow-black/40'
-                  : 'border-slate-200 bg-white text-slate-800 shadow-slate-400/20'
-              }`}
-            >
+            <div className="absolute right-0 top-full z-[70] mt-1 min-w-[280px] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg py-1">
               {[
                 { k: 1 as const, label: 'Parte completo del día' },
                 { k: 2 as const, label: 'Solo incidencias de la jornada' },
@@ -869,11 +830,7 @@ export default function ParteDiario() {
                   type="button"
                   disabled={generandoPdf}
                   onClick={() => onElegirOpcionPdf(k)}
-                  className={`w-full px-3 py-2.5 text-left text-xs font-medium transition-colors disabled:opacity-50 ${
-                    theme === 'dark'
-                      ? 'hover:bg-slate-800 text-slate-200'
-                      : 'hover:bg-slate-50 text-slate-800'
-                  }`}
+                  className="w-full px-3 py-2.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
                 >
                   {label}
                 </button>
@@ -887,7 +844,7 @@ export default function ParteDiario() {
             type="button"
             onClick={handleCerrarJornada}
             disabled={cerrarJornada.isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-400 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
           >
             <LogOut className="w-3.5 h-3.5" />
             Cerrar jornada
@@ -901,13 +858,13 @@ export default function ParteDiario() {
 
         {cargando && (
           <div className="flex items-center justify-center py-16">
-            <span className="w-5 h-5 border-2 border-white/10 border-t-[#6d9b7d] rounded-full animate-spin" />
+            <span className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin" />
           </div>
         )}
 
         {!cargando && !parteId && !esHoy && (
           <div className="text-center py-16">
-            <p className="text-slate-500 text-sm">Sin parte registrado para esta fecha.</p>
+            <p className="text-muted-foreground text-sm">Sin parte registrado para esta fecha.</p>
           </div>
         )}
 
@@ -948,15 +905,15 @@ export default function ParteDiario() {
       </main>
 
       {/* ── BARRA INFERIOR ── */}
-      <footer className="bg-slate-900/80 border-t border-white/10 px-4 py-1.5 flex items-center gap-4">
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+      <footer className="bg-card/95 backdrop-blur-md border-t border-border px-4 py-1.5 flex items-center gap-4">
+        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
           Marvic 360 · Parte Diario
         </span>
-        <span className="text-[10px] text-slate-600">|</span>
-        <span className="text-[10px] text-slate-500">
+        <span className="text-[10px] text-muted-foreground/70">|</span>
+        <span className="text-[10px] text-muted-foreground">
           {estadosFinca.length + trabajos.length + personales.length + residuos.length} entradas
         </span>
-        <span className="text-[10px] font-mono text-slate-600 ml-auto">
+        <span className="text-[10px] font-mono text-muted-foreground ml-auto">
           {new Date().toTimeString().slice(0, 8)}
         </span>
       </footer>
@@ -965,37 +922,39 @@ export default function ParteDiario() {
       {/* MODAL — RESULTADO CIERRE DE JORNADA                       */}
       {/* ══════════════════════════════════════════════════════════ */}
       {showCierre && cierreResultado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-md shadow-2xl">
-            <div className="border-b border-white/10 px-5 py-3 flex items-center justify-between">
-              <span className="text-sm font-black uppercase tracking-widest text-orange-400">Jornada cerrada</span>
-              <button onClick={() => setShowCierre(false)} className="text-slate-500 hover:text-white text-lg leading-none">×</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl">
+            <div className="border-b border-border px-5 py-3 flex items-center justify-between">
+              <span className="text-sm font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">Jornada cerrada</span>
+              <button type="button" onClick={() => setShowCierre(false)} className="text-muted-foreground hover:text-foreground text-lg leading-none">×</button>
             </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Trabajos ejecutados', value: cierreResultado.ejecutados, color: 'text-green-400' },
-                  { label: 'Pendientes arrastrados', value: cierreResultado.arrastrados, color: 'text-orange-400' },
-                  { label: 'Incidencias arrastradas', value: cierreResultado.incidenciasArrastradas, color: 'text-red-400' },
-                  { label: 'Pendientes marcados', value: cierreResultado.pendientes, color: 'text-slate-400' },
+                  { label: 'Trabajos ejecutados', value: cierreResultado.ejecutados, color: 'text-green-600 dark:text-green-400' },
+                  { label: 'Pendientes arrastrados', value: cierreResultado.arrastrados, color: 'text-orange-600 dark:text-orange-400' },
+                  { label: 'Incidencias arrastradas', value: cierreResultado.incidenciasArrastradas, color: 'text-red-600 dark:text-red-400' },
+                  { label: 'Pendientes marcados', value: cierreResultado.pendientes, color: 'text-muted-foreground' },
                 ].map(({ label, value, color }) => (
-                  <div key={label} className="bg-slate-800/60 border border-white/10 rounded-lg px-3 py-3 text-center">
+                  <div key={label} className="bg-muted/50 border border-border rounded-lg px-3 py-3 text-center">
                     <p className={`text-2xl font-black ${color}`}>{value}</p>
-                    <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">{label}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">{label}</p>
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] text-slate-500 text-center">
+              <p className="text-[11px] text-muted-foreground text-center">
                 Los trabajos pendientes e incidencias urgentes han sido arrastrados a manana con prioridad alta.
               </p>
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={() => setShowCierre(false)}
-                  className="flex-1 py-2.5 rounded-lg border border-white/10 text-slate-400 text-sm hover:border-white/20 transition-colors"
+                  className="flex-1 py-2.5 rounded-lg border border-border text-muted-foreground text-sm hover:bg-muted transition-colors"
                 >
                   Cerrar
                 </button>
                 <button
+                  type="button"
                   onClick={() => { setShowCierre(false); navigate('/trabajos') }}
                   className="flex-1 py-2.5 rounded-lg bg-orange-600 text-white text-sm font-black hover:bg-orange-500 transition-colors"
                 >

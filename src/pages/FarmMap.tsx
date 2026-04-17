@@ -11,9 +11,8 @@ import {
   Shovel, Sprout, Wheat, Activity, Camera,
   Droplets, Leaf, FileText, AlertCircle, Layers, Tractor
 } from 'lucide-react'
-import jsPDF from 'jspdf'
 import { supabase } from '@/integrations/supabase/client'
-import { generarPDFCorporativoBase, pdfCorporateSection, pdfCorporateTable, PDF_COLORS } from '@/utils/pdfUtils'
+import { generarPDFCorporativoBase } from '@/utils/pdfUtils'
 import type { ParcelFeature, ParcelStatus } from '@/types/farm'
 import { STATUS_COLORS, STATUS_LABELS } from '@/types/farm'
 
@@ -335,21 +334,27 @@ export default function FarmMap() {
     
     tractoresPosiciones.forEach(pos => {
       // Solo mostrar posiciones recientes (últimas 2 horas)
-      if (new Date(pos.timestamp).getTime() < dosHorasAtras) return;
+      const t = pos.timestamp ? new Date(pos.timestamp).getTime() : NaN;
+      if (!Number.isFinite(t) || t < dosHorasAtras) return;
       
       const html = `
-        <div style="background:#fb923c; color:#020617; border: 2px solid white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+        <div style="background:#fb923c; color:#1b3022; border: 2px solid #f5f2eb; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m10 11 11 .9c.6 0 .9.5.8 1.1l-.8 5h-1"/><path d="M16 18h-5"/><path d="M18 5c-.6 0-1 .4-1 1v5.6"/><path d="m20 18-1-1h-1"/><path d="m22 18-1-1h-1"/><path d="m3 8 1.5-3h4.9l.6 3"/><path d="M3.1 9H8c2.2 0 4 1.8 4 4v3"/><path d="M4 18h-1"/><path d="M7 18h-2"/><circle cx="18" cy="18" r="2"/><circle cx="7" cy="18" r="3"/></svg>
         </div>
       `;
       
       const icon = L.divIcon({ html, className: '' });
-      const marker = L.marker([pos.latitud, pos.longitud], { icon }).addTo(layerGroup);
+      const lat = pos.latitude != null ? Number(pos.latitude) : NaN
+      const lng = pos.longitude != null ? Number(pos.longitude) : NaN
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+
+      const marker = L.marker([lat, lng], { icon }).addTo(layerGroup);
       
       const timeStr = new Date(pos.timestamp).toLocaleTimeString('es-ES');
+      const spd = pos.speed != null ? Number(pos.speed) : 0
       marker.bindTooltip(`
-        <div class="font-bold text-slate-800 text-[11px] mb-1 uppercase tracking-wider">Tractor ID: ${pos.vehicle_id.slice(0, 5)}</div>
-        <div class="text-[10px] text-slate-600">Velocidad: <b>${pos.velocidad_kmh || 0} km/h</b></div>
+        <div class="font-bold text-slate-800 text-[11px] mb-1 uppercase tracking-wider">Tractor ID: ${(pos.vehicle_id ?? '').slice(0, 5) || '—'}</div>
+        <div class="text-[10px] text-slate-600">Velocidad: <b>${Number.isFinite(spd) ? spd : 0} km/h</b></div>
         <div class="text-[10px] text-slate-600">Última señal: <b>${timeStr}</b></div>
       `, { direction: 'top', offset: [0, -10] });
     });
@@ -379,7 +384,6 @@ export default function FarmMap() {
         subtitulo: `Finca: ${decodedFarm} | Período: ${informeFechaInicio} a ${informeFechaFin}`,
         fecha: new Date(),
         filename: `Finca_${decodedFarm.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`,
-        accentColor: PDF_COLORS.green,
         bloques: [
           async (ctx) => {
             if (informeFincaTipo === 'sector') {
@@ -407,13 +411,13 @@ export default function FarmMap() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] flex items-center justify-center text-[#6d9b7d] text-sm font-black tracking-widest uppercase transition-colors">
+    <div className="min-h-screen bg-background flex items-center justify-center text-[#6d9b7d] text-sm font-black tracking-widest uppercase transition-colors">
       Cargando sistema...
     </div>
   )
 
   if (geoError) return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] flex items-center justify-center flex-col gap-4 text-center px-8 transition-colors">
+    <div className="min-h-screen bg-background flex items-center justify-center flex-col gap-4 text-center px-8 transition-colors">
       <span className="text-red-400 text-sm font-black tracking-widest uppercase">Error cargando mapa</span>
       <span className="text-slate-500 dark:text-slate-400 text-xs">{typeof geoError === 'string' ? geoError : ((geoError as unknown as Error)?.message || 'Error')}</span>
       <button onClick={() => navigate('/farm')} className="text-[#6d9b7d] text-xs underline">Volver al selector</button>
@@ -428,7 +432,7 @@ export default function FarmMap() {
   const closeModal = () => setActiveModal(null)
 
   return (
-    <div className="h-screen w-screen relative overflow-hidden bg-slate-50 dark:bg-[#020617] transition-colors">
+    <div className="h-screen w-screen relative overflow-hidden bg-background transition-colors">
 
       <div ref={mapContainerRef} className="h-full w-full z-0" />
 

@@ -7,7 +7,7 @@
     <meta name="description" content="ERP agrícola — gestión integral de Fincas Marvic" />
 
     <!-- PWA -->
-    <meta name="theme-color" content="#030712" />
+    <meta name="theme-color" content="#1b3022" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -18,7 +18,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <link rel="mask-icon" href="/icons/icon-192.png" color="#38bdf8" />
+    <link rel="mask-icon" href="/icons/icon-192.png" color="#1b3022" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
@@ -34,7 +34,7 @@
         left: 0;
         width: 100%;
         height: 100vh;
-        background-color: #030712; /* Fondo casi negro para máximo contraste */
+        background-color: #1b3022; /* Verde bosque marca */
         display: flex;
         justify-content: center;
         align-items: center;
@@ -62,11 +62,11 @@
 
       .logo-trazo {
         fill: none;
-        stroke: #38bdf8; /* Azul Metalizado */
+        stroke: #d8d3c9; /* Beige piedra marca */
         stroke-width: 2.5;
         stroke-linecap: round;
         stroke-linejoin: round;
-        filter: drop-shadow(0 0 15px rgba(56, 189, 248, 0.6));
+        filter: drop-shadow(0 0 12px rgba(216, 211, 201, 0.45));
         
         /* Animación combinada: dibujo + resplandor */
         animation: logoGlow 3s infinite ease-in-out 1.2s;
@@ -74,7 +74,7 @@
 
       /* TEXTO AGROGESTIÓN CON EFECTO SHIMMER (BRILLO RECORRIENTE) */
       .logo-texto {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+        font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         font-size: clamp(2.5rem, 10vw, 4rem);
         font-weight: 800;
         text-transform: uppercase;
@@ -85,21 +85,19 @@
         animation: entradaImpacto 1s forwards 0.3s;
         
         /* Configuración para el efecto Shimmer */
-        background: linear-gradient(110deg, #38bdf8 40%, #e0f2fe 50%, #38bdf8 60%);
+        background: linear-gradient(110deg, #d8d3c9 35%, #f5f2eb 50%, #d8d3c9 65%);
         background-size: 200% auto;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
         color: transparent;
         animation: entradaImpacto 1s forwards 0.3s, textShimmer 3s infinite linear 1.5s;
-        
-        /* Sutil sombra para dar profundidad */
-        -webkit-text-stroke: 1px rgba(56, 189, 248, 0.2);
+        -webkit-text-stroke: 1px rgba(216, 211, 201, 0.15);
       }
 
       /* SUBTÍTULO: AHORA PERFECTAMENTE CENTRADO */
       .subtitulo {
-        color: #94a3b8; /* Gris azulado suave */
+        color: #97b9a3; /* Sage suave */
         font-family: inherit;
         font-size: clamp(0.7rem, 3vw, 1rem);
         font-weight: 500;
@@ -124,8 +122,8 @@
 
       /* Efecto de respiración del resplandor del logo */
       @keyframes logoGlow {
-        0%, 100% { filter: drop-shadow(0 0 15px rgba(56, 189, 248, 0.6)); stroke-width: 2.5; }
-        50% { filter: drop-shadow(0 0 25px rgba(224, 242, 254, 0.9)); stroke-width: 3; }
+        0%, 100% { filter: drop-shadow(0 0 12px rgba(216, 211, 201, 0.4)); stroke-width: 2.5; }
+        50% { filter: drop-shadow(0 0 20px rgba(245, 242, 235, 0.55)); stroke-width: 3; }
       }
 
       /* Efecto Shimmer: Brillo que recorre el texto */
@@ -155,8 +153,8 @@
           <path class="logo-trazo" d="M90 50 A40 40 0 1 1 50 10" />
         </svg>
 
-        <h1 class="logo-texto">AgroGestión</h1>
-        <p class="subtitulo">INTELIGENCIA AGRÍCOLA CIRCULAR</p>
+        <h1 class="logo-texto">Agrícola Marvic</h1>
+        <p class="subtitulo">360 · Gestión integral</p>
       </div>
     </div>
 

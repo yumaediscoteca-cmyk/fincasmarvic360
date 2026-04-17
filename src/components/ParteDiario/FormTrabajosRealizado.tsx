@@ -173,8 +173,8 @@ export const FormTrabajosRealizado = React.memo(({ parteId, trabajos, fecha, esH
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setModalOpen(false)} className="flex-1 py-2.5 rounded-lg border border-white/10 text-slate-400 text-sm hover:border-white/20 transition-colors">Cancelar</button>
-                <button onClick={submitB} disabled={saving || !formB.tipo_trabajo} className="flex-1 py-2.5 rounded-lg bg-amber-500 text-[#020617] text-sm font-black hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                  {saving && <span className="w-3.5 h-3.5 border-2 border-[#020617]/20 border-t-[#020617] rounded-full animate-spin" />} Guardar
+                <button type="button" onClick={submitB} disabled={saving || !formB.tipo_trabajo} className="flex-1 py-2.5 rounded-lg bg-amber-500 text-amber-950 text-sm font-black hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                  {saving && <span className="w-3.5 h-3.5 border-2 border-amber-950/20 border-t-amber-950 rounded-full animate-spin" />} Guardar
                 </button>
               </div>
             </div>

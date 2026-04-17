@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Warehouse, Tag, Package,
-  Activity, Server, Wifi, FileText, Filter,
+  Activity, Wifi, FileText, Filter, Clock, Moon, Sun,
   ShoppingCart, Users, ChevronDown, ChevronRight, Plus, Trash2, Edit2,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../integrations/supabase/client';
-import jsPDF from 'jspdf';
+import { generarPDFCorporativoBase, pdfCorporateSection, PDF_BRAND, PDF_MARGIN, PDF_TEXT_W } from '../utils/pdfUtils';
 import {
   useUbicaciones, useTotalRegistros,
   useConteosUbicaciones, useCategorias,
@@ -53,33 +53,6 @@ const TIPOS_PROVEEDOR_LABEL: Record<string, string> = {
   otro: 'Otro',
 }
 const UNIDADES_FRECUENTES = ['kg', 'litros', 'unidades', 'sacos', 'cajas', 'rollos', 'bidones', 'palés']
-
-// ─── Helper PDF ───────────────────────────────────────────────────────────────
-
-async function loadImageInv(url: string): Promise<{ data: string; w: number; h: number } | null> {
-  try {
-    const res  = await fetch(url)
-    const blob = await res.blob()
-    return await new Promise(resolve => {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width  = img.naturalWidth
-        canvas.height = img.naturalHeight
-        const ctx = canvas.getContext('2d')!
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(img, 0, 0)
-        const data = canvas.toDataURL('image/jpeg', 0.8)
-        URL.revokeObjectURL(img.src)
-        resolve({ data, w: img.naturalWidth, h: img.naturalHeight })
-      }
-      img.onerror = () => resolve(null)
-      img.src = URL.createObjectURL(blob)
-    })
-  } catch { return null }
-}
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 
@@ -143,7 +116,7 @@ export default function Inventario() {
   const [precioSubmitting,   setPrecioSubmitting]   = useState(false);
 
   const navigate                = useNavigate();
-  const { theme }               = useTheme();
+  const { theme, toggleTheme }  = useTheme();
   const { data: ubicaciones = [],  isLoading }          = useUbicaciones();
   const { data: categorias  = [] }                       = useCategorias();
   const { data: totalRegistros, isLoading: isLoadingTotal } = useTotalRegistros();
@@ -309,48 +282,6 @@ export default function Inventario() {
     if (selUbics.size === 0 || selCats.size === 0) return;
     setGenPdf(true);
     try {
-      const doc    = new jsPDF();
-      const margin = 15;
-      const maxW   = 180;
-      const lh     = 6;
-      let y        = 25;
-      const logo = await loadImageInv('/MARVIC_logo.png');
-
-      function addLogoToPage() {
-        if (!logo) return;
-        const lw  = 38;
-        const lh2 = lw * (logo.h / logo.w);
-        doc.addImage(logo.data, 'JPEG', 210 - margin - lw, 6, lw, lh2);
-      }
-
-      const checkPage = (needed = 10) => {
-        if (y + needed > 272) { doc.addPage(); y = 25; addLogoToPage(); }
-      };
-
-      const writeLine = (text: string, bold = false, size = 9) => {
-        checkPage();
-        doc.setFontSize(size);
-        doc.setFont('helvetica', bold ? 'bold' : 'normal');
-        const lines = doc.splitTextToSize(text, maxW) as string[];
-        doc.text(lines, margin, y);
-        y += lines.length * lh;
-      };
-
-      const separator = () => {
-        checkPage(4);
-        doc.setDrawColor(160);
-        doc.line(margin, y, margin + maxW, y);
-        y += lh;
-      };
-
-      addLogoToPage();
-      writeLine('INFORME GLOBAL DE INVENTARIO — AGRÍCOLA MARVIC 360', true, 13);
-      y += 2;
-      writeLine(`Período: ${fechaDesde} → ${fechaHasta}`);
-      writeLine(`Generado el: ${new Date().toLocaleString('es-ES')}`);
-      y += 4;
-      separator();
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: registros, error } = await (supabase as any)
         .from('inventario_registros')
@@ -366,45 +297,83 @@ export default function Inventario() {
       if (error) throw error;
       const rows: RegConRel[] = registros ?? [];
 
-      if (rows.length === 0) {
-        writeLine('Sin registros para el período y filtros seleccionados.', false, 10);
-      } else {
-        const porUbic = new Map<string, RegConRel[]>();
-        for (const r of rows) {
-          if (!porUbic.has(r.ubicacion_id)) porUbic.set(r.ubicacion_id, []);
-          porUbic.get(r.ubicacion_id)!.push(r);
-        }
-        for (const [, regsUbic] of porUbic) {
-          const nombreUbic = regsUbic[0]?.inventario_ubicaciones?.nombre ?? '—';
-          checkPage(16);
-          writeLine(`UBICACIÓN: ${nombreUbic.toUpperCase()}`, true, 11);
-          y += 2;
-          const porCat = new Map<string, RegConRel[]>();
-          for (const r of regsUbic) {
-            if (!porCat.has(r.categoria_id)) porCat.set(r.categoria_id, []);
-            porCat.get(r.categoria_id)!.push(r);
+      await generarPDFCorporativoBase({
+        titulo: 'INFORME GLOBAL DE INVENTARIO',
+        subtitulo: 'Agrícola Marvic 360',
+        fecha: new Date(),
+        filename: `Inventario_Global_${fechaDesde}_${fechaHasta}.pdf`,
+        bloques: [(ctx) => {
+          const doc = ctx.doc;
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...PDF_BRAND.muted);
+          doc.text(`Período: ${fechaDesde} → ${fechaHasta}`, PDF_MARGIN, ctx.y);
+          ctx.y += 5;
+          doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, PDF_MARGIN, ctx.y);
+          ctx.y += 7;
+          if (rows.length === 0) {
+            doc.setTextColor(...PDF_BRAND.green);
+            doc.text('Sin registros para el período y filtros seleccionados.', PDF_MARGIN, ctx.y);
+            return;
           }
-          for (const [, regsCat] of porCat) {
-            const nombreCat = regsCat[0]?.inventario_categorias?.nombre ?? '—';
-            checkPage(12);
-            writeLine(`Categoría: ${nombreCat} (${regsCat.length} reg.)`, true, 9);
-            y += 1;
-            for (const r of regsCat) {
-              checkPage(10);
-              const fecha = new Date(r.created_at).toLocaleDateString('es-ES');
-              writeLine(`  ${fecha}  ·  ${r.cantidad} ${r.unidad}${r.descripcion ? `  ·  ${r.descripcion}` : ''}`);
-              if (r.precio_unitario) writeLine(`  Precio: ${r.precio_unitario.toFixed(2)} €`);
-              if (r.notas)          writeLine(`  Notas: ${r.notas}`);
-              y += 1;
+          const porUbic = new Map<string, RegConRel[]>();
+          for (const r of rows) {
+            if (!porUbic.has(r.ubicacion_id)) porUbic.set(r.ubicacion_id, []);
+            porUbic.get(r.ubicacion_id)!.push(r);
+          }
+          for (const [, regsUbic] of porUbic) {
+            const nombreUbic = regsUbic[0]?.inventario_ubicaciones?.nombre ?? '—';
+            pdfCorporateSection(ctx, `Ubicación · ${nombreUbic}`);
+            const porCat = new Map<string, RegConRel[]>();
+            for (const r of regsUbic) {
+              if (!porCat.has(r.categoria_id)) porCat.set(r.categoria_id, []);
+              porCat.get(r.categoria_id)!.push(r);
             }
-            y += 2;
+            for (const [, regsCat] of porCat) {
+              const nombreCat = regsCat[0]?.inventario_categorias?.nombre ?? '—';
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(9);
+              doc.setTextColor(...PDF_BRAND.green);
+              ctx.checkPage(8);
+              doc.text(`Categoría: ${nombreCat} (${regsCat.length} reg.)`, PDF_MARGIN, ctx.y);
+              ctx.y += 5;
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(8);
+              for (const r of regsCat) {
+                const fecha = new Date(r.created_at).toLocaleDateString('es-ES');
+                const line = `  ${fecha}  ·  ${r.cantidad} ${r.unidad}${r.descripcion ? `  ·  ${r.descripcion}` : ''}`;
+                const lines = doc.splitTextToSize(line, PDF_TEXT_W) as string[];
+                for (const ln of lines) {
+                  ctx.checkPage(4);
+                  doc.text(ln, PDF_MARGIN, ctx.y);
+                  ctx.y += 4;
+                }
+                if (r.precio_unitario) {
+                  ctx.checkPage(4);
+                  doc.text(`  Precio: ${r.precio_unitario.toFixed(2)} €`, PDF_MARGIN, ctx.y);
+                  ctx.y += 4;
+                }
+                if (r.notas) {
+                  const ns = doc.splitTextToSize(`  Notas: ${r.notas}`, PDF_TEXT_W) as string[];
+                  for (const ln of ns) {
+                    ctx.checkPage(4);
+                    doc.text(ln, PDF_MARGIN, ctx.y);
+                    ctx.y += 4;
+                  }
+                }
+                ctx.y += 2;
+              }
+              ctx.y += 2;
+            }
+            ctx.separator();
           }
-          separator();
-        }
-        writeLine(`Total registros: ${rows.length}`, true);
-      }
-
-      doc.save(`Inventario_Global_${fechaDesde}_${fechaHasta}.pdf`);
+          ctx.checkPage(6);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10);
+          doc.setTextColor(...PDF_BRAND.green);
+          doc.text(`Total registros: ${rows.length}`, PDF_MARGIN, ctx.y);
+        }],
+      });
       setShowModal(false);
     } finally {
       setGenPdf(false);
@@ -420,40 +389,65 @@ export default function Inventario() {
   // RENDER
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-white flex flex-col transition-colors duration-300">
+    <div className="min-h-screen bg-background text-foreground flex flex-col transition-colors duration-300">
 
-      {/* BARRA SUPERIOR */}
-      <header className="w-full bg-white/90 dark:bg-slate-900/80 border-b border-slate-200 dark:border-white/10 pl-14 pr-6 py-2 flex items-center justify-between z-50">
-        <div className="flex items-center gap-3">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-[10px] font-black text-green-500 dark:text-green-400 uppercase tracking-widest">
-            Inventario Activos
-          </span>
-          <span className="text-[10px] text-slate-300 dark:text-slate-600 mx-2">|</span>
-          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{fechaStr}</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={abrirModal}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[#6d9b7d]/30 bg-[#6d9b7d]/5 hover:bg-[#6d9b7d]/10 text-[#6d9b7d] transition-all"
-          >
-            <FileText className="w-3 h-3" />
-            <span className="text-[9px] font-black uppercase tracking-widest">Informe Global</span>
-          </button>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-slate-800/60 hover:border-[#6d9b7d]/50 hover:text-[#6d9b7d] transition-all text-slate-500 dark:text-slate-400"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            <span className="text-[9px] font-black uppercase tracking-widest">Volver</span>
-          </button>
-          <div className="flex items-center gap-1.5">
-            <Wifi className="w-3 h-3 text-green-400" />
-            <span className="text-[10px] text-green-500 dark:text-green-400 font-bold uppercase tracking-widest">Online</span>
+      {/* BARRA SUPERIOR — tema integrado (GlobalThemeToggle oculto en esta ruta) */}
+      <header className="sticky top-0 z-50 w-full border-b border-slate-200/90 bg-white/95 backdrop-blur-md dark:border-white/10 dark:bg-slate-900/92 pt-[max(0.25rem,env(safe-area-inset-top,0px))] pl-14 pr-3 sm:pr-5">
+        <div className="flex min-h-[2.75rem] flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-green-400 animate-pulse" aria-hidden />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
+                <h1 className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-900 dark:text-white">
+                  Inventario
+                </h1>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#6d9b7d]">
+                  Activos físicos
+                </span>
+              </div>
+              <p className="mt-0.5 text-[10px] font-mono text-slate-500 dark:text-slate-400">{fechaStr}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Server className="w-3 h-3 text-[#6d9b7d]" />
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{horaStr}</span>
+
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:shrink-0">
+            <button
+              type="button"
+              onClick={abrirModal}
+              className="flex items-center gap-1.5 rounded-lg border border-[#6d9b7d]/35 bg-[#6d9b7d]/8 px-2.5 py-1.5 text-[#6d9b7d] transition-colors hover:bg-[#6d9b7d]/14"
+            >
+              <FileText className="h-3.5 w-3.5 shrink-0" />
+              <span className="text-[9px] font-black uppercase tracking-widest">Informe</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-slate-600 transition-colors hover:border-[#6d9b7d]/45 hover:text-[#6d9b7d] dark:border-white/10 dark:bg-slate-800/70 dark:text-slate-300"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+              <span className="text-[9px] font-black uppercase tracking-widest">Volver</span>
+            </button>
+
+            <div
+              className="flex items-center gap-2 rounded-lg border border-slate-200/90 bg-slate-50 px-2 py-1 dark:border-white/10 dark:bg-slate-800/55"
+              title="Estado de conexión"
+            >
+              <Wifi className="h-3.5 w-3.5 shrink-0 text-green-500 dark:text-green-400" aria-hidden />
+              <span className="text-[9px] font-bold uppercase tracking-wider text-green-600 dark:text-green-400">
+                Online
+              </span>
+              <span className="h-3 w-px shrink-0 bg-slate-200 dark:bg-white/15" aria-hidden />
+              <Clock className="h-3 w-3 shrink-0 text-slate-400 dark:text-slate-500" aria-hidden />
+              <span className="font-mono text-[10px] tabular-nums text-slate-600 dark:text-slate-300">{horaStr}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Activar modo claro' : 'Activar modo oscuro'}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+            >
+              {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+            </button>
           </div>
         </div>
       </header>
@@ -816,7 +810,7 @@ export default function Inventario() {
                   disabled={genPdf || selUbics.size === 0 || selCats.size === 0}
                   className="btn-primary flex-1 py-2.5 rounded-lg text-sm font-black flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {genPdf ? <span className="w-3.5 h-3.5 border-2 border-[#020617]/20 border-t-[#020617] rounded-full animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                  {genPdf ? <span className="w-3.5 h-3.5 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                   {genPdf ? 'Generando…' : 'Generar PDF'}
                 </button>
               </div>

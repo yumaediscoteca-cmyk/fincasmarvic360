@@ -1587,6 +1587,9 @@ export interface PlanificacionCampana {
   /** Parcela específica (FK opcional) */
   parcel_id: string | null;
 
+  /** Superficie del sector dedicada a esta línea (m²); mismo sector puede repetirse con otro cultivo */
+  superficie_m2?: number | null;
+
   /** Cultivo a plantar */
   cultivo: string;
 

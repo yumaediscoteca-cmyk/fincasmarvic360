@@ -279,6 +279,41 @@ export function useAddApero() {
   });
 }
 
+// ── useUpdateApero ──────────────────────────────────────────────
+export function useUpdateApero() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ubicacion_id,
+      ...patch
+    }: Partial<Omit<Apero, 'id' | 'created_at'>> & { id: string; ubicacion_id?: string | null }) => {
+      const { error } = await supabase.from('maquinaria_aperos').update(patch).eq('id', id);
+      if (error) throw error;
+
+      await supabase.from('maquinaria_inventario_sync').delete().eq('tipo', 'apero').eq('maquinaria_id', id);
+      if (ubicacion_id) {
+        const { error: syncErr } = await supabase.from('maquinaria_inventario_sync').insert({
+          tipo: 'apero',
+          maquinaria_id: id,
+          ubicacion_id,
+        });
+        if (syncErr) throw syncErr;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['maquinaria_aperos'] });
+      qc.invalidateQueries({ queryKey: ['v_maquinaria_aperos_en_inventario'] });
+      qc.invalidateQueries({ queryKey: ['maquinaria_inventario_sync'] });
+      qc.invalidateQueries({ queryKey: ['maquinaria_kpis'] });
+    },
+    onError: (error: Error) => {
+      console.error('[Hook Error]:', error.message);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
 // ── useDeleteApero ────────────────────────────────────────────
 export function useDeleteApero() {
   const qc = useQueryClient();

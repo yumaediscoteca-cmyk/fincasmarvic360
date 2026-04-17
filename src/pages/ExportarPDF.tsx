@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables } from '@/integrations/supabase/types'
-import { initPdf, PDF_COLORS, pdfCorporateSection, pdfCorporateTable, PDF_MARGIN } from '@/utils/pdfUtils'
+import { initPdf, PDF_BRAND, pdfCorporateSection, pdfCorporateTable, PDF_MARGIN } from '@/utils/pdfUtils'
 import { formatFechaLarga } from '@/utils/dateFormat'
 import { matchHarvestsToPlantings } from '@/utils/harvestPlantingMatch'
 import { FINCAS_NOMBRES as FINCAS } from '@/constants/farms'
@@ -24,12 +24,12 @@ interface ModuloExport {
 }
 
 const MODULOS: ModuloExport[] = [
-  { id: 'parte_diario', label: 'Parte Diario',  icon: ClipboardList, color: PDF_COLORS.green   },
-  { id: 'trabajos',     label: 'Trabajos',       icon: Wrench,        color: PDF_COLORS.amber   },
-  { id: 'maquinaria',   label: 'Maquinaria',     icon: Tractor,       color: PDF_COLORS.orange  },
-  { id: 'logistica',    label: 'Logística',       icon: Truck,         color: PDF_COLORS.violet  },
-  { id: 'personal',     label: 'Personal',        icon: User,          color: PDF_COLORS.fuchsia },
-  { id: 'campo',        label: 'Campo / Parcelas',icon: Leaf,          color: PDF_COLORS.green   },
+  { id: 'parte_diario', label: 'Parte Diario',  icon: ClipboardList, color: PDF_BRAND.green },
+  { id: 'trabajos',     label: 'Trabajos',       icon: Wrench,        color: PDF_BRAND.green },
+  { id: 'maquinaria',   label: 'Maquinaria',     icon: Tractor,       color: PDF_BRAND.green },
+  { id: 'logistica',    label: 'Logística',       icon: Truck,         color: PDF_BRAND.green },
+  { id: 'personal',     label: 'Personal',        icon: User,          color: PDF_BRAND.green },
+  { id: 'campo',        label: 'Campo / Parcelas',icon: Leaf,          color: PDF_BRAND.green },
 ]
 
 // ── Carga de datos por módulo ─────────────────────────────────────────────────
@@ -149,7 +149,7 @@ async function generarPDFGlobal(
   hasta: string,
   modulosSeleccionados: Set<string>
 ) {
-  const { doc, ctx } = await initPdf(PDF_COLORS.accent)
+  const { doc, ctx } = await initPdf(PDF_BRAND.green)
 
   const rangoLabel = `${new Date(desde).toLocaleDateString('es-ES')} — ${new Date(hasta).toLocaleDateString('es-ES')}`
 
@@ -368,7 +368,7 @@ async function generarPDFGlobal(
 // ── Generadores Agronómicos ───────────────────────────────────────────────────
 
 async function generarPDFAgronomico(tipo: string, desde: string, hasta: string, fincaFiltro: string) {
-  const { doc, ctx } = await initPdf(PDF_COLORS.green)
+  const { doc, ctx } = await initPdf(PDF_BRAND.green)
   const rangoLabel = `${new Date(desde).toLocaleDateString('es-ES')} — ${new Date(hasta).toLocaleDateString('es-ES')}`
   const titulo = tipo === 'suelo' ? 'ANÁLISIS DE SUELO' :
                  tipo === 'produccion' ? 'PRODUCCIÓN Y COSECHA' :
@@ -624,18 +624,19 @@ export default function ExportarPDF() {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
 
       {/* CABECERA */}
-      <header className="bg-slate-900/80 border-b border-white/10 pl-14 pr-4 py-2.5 flex items-center gap-3">
+      <header className="bg-card/95 backdrop-blur-md border-b border-border pl-14 pr-4 py-2.5 flex items-center gap-3">
         <button
+          type="button"
           onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="text-[10px] font-black uppercase tracking-widest">Volver</span>
         </button>
-        <div className="w-px h-4 bg-white/10" />
+        <div className="w-px h-4 bg-border" aria-hidden />
         <FileText className="w-4 h-4 text-[#6d9b7d]" />
         <span className="text-[10px] font-black uppercase tracking-widest text-[#6d9b7d]">Exportar PDF Global</span>
       </header>
@@ -643,28 +644,28 @@ export default function ExportarPDF() {
       <main className="flex-1 overflow-y-auto px-4 py-5 max-w-2xl w-full mx-auto space-y-5">
 
         {/* Pestañas UI */}
-        <div className="flex bg-slate-900/60 p-1 rounded-xl border border-white/10">
-          <button onClick={() => setTab('global')} className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-colors ${tab === 'global' ? 'bg-[#6d9b7d] text-slate-900' : 'text-slate-400 hover:text-white'}`}>
+        <div className="flex bg-muted/60 p-1 rounded-xl border border-border">
+          <button type="button" onClick={() => setTab('global')} className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-colors ${tab === 'global' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
             Global / Módulos
           </button>
-          <button onClick={() => setTab('agronomico')} className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-colors ${tab === 'agronomico' ? 'bg-green-500 text-slate-900' : 'text-slate-400 hover:text-white'}`}>
+          <button type="button" onClick={() => setTab('agronomico')} className={`flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-colors ${tab === 'agronomico' ? 'bg-green-600 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
             Reportes Agronómicos
           </button>
         </div>
 
         {/* Rango de fechas */}
-        <div className="bg-slate-900/60 border border-white/10 rounded-xl p-4 space-y-3">
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Rango de fechas</p>
+        <div className="bg-card border border-border rounded-xl p-4 space-y-3 shadow-sm">
+          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Rango de fechas</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Desde</label>
+              <label className="block text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Desde</label>
               <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
-                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#6d9b7d]/50 outline-none" />
+                className="w-full bg-background border border-input rounded-lg px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/30 outline-none" />
             </div>
             <div>
-              <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Hasta</label>
+              <label className="block text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Hasta</label>
               <input type="date" value={hasta} onChange={e => setHasta(e.target.value)}
-                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#6d9b7d]/50 outline-none" />
+                className="w-full bg-background border border-input rounded-lg px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/30 outline-none" />
             </div>
           </div>
         </div>
@@ -672,37 +673,38 @@ export default function ExportarPDF() {
         {tab === 'global' && (
           <>
             {/* Selección de módulos */}
-            <div className="bg-slate-900/60 border border-white/10 rounded-xl p-4 space-y-3">
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Módulos a incluir</p>
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3 shadow-sm">
+              <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Módulos a incluir</p>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {MODULOS.map(m => {
                   const seleccionado = modulos.has(m.id)
                   const count = preview?.[m.id as keyof typeof preview] ?? null
                   return (
                     <button
+                      type="button"
                       key={m.id}
                       onClick={() => toggleModulo(m.id)}
                       className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
-                        seleccionado ? 'border-[#6d9b7d]/40 bg-[#6d9b7d]/5' : 'border-white/10 bg-slate-900/40 hover:border-white/20'
+                        seleccionado ? 'border-primary/40 bg-primary/10' : 'border-border bg-muted/30 hover:border-primary/30'
                       }`}
                     >
-                      <div className="w-8 h-8 rounded-lg bg-slate-800/80 flex items-center justify-center shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
                         <m.icon className="w-4 h-4" style={{ color: `rgb(${m.color.join(',')})` }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-white">{m.label}</p>
-                        {count !== null && <p className="text-[9px] text-slate-500">{count} registros en el período</p>}
+                        <p className="text-[11px] font-bold text-foreground">{m.label}</p>
+                        {count !== null && <p className="text-[9px] text-muted-foreground">{count} registros en el período</p>}
                       </div>
-                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${seleccionado ? 'border-[#6d9b7d] bg-[#6d9b7d]' : 'border-slate-600'}`}>
-                        {seleccionado && <Check className="w-3 h-3 text-[#020617]" />}
+                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${seleccionado ? 'border-primary bg-primary' : 'border-border'}`}>
+                        {seleccionado && <Check className="w-3 h-3 text-primary-foreground" />}
                       </div>
                     </button>
                   )
                 })}
               </div>
             </div>
-            <div className="bg-slate-800/40 border border-white/5 rounded-xl p-4">
-              <p className="text-[10px] text-slate-500">
+            <div className="bg-muted/40 border border-border rounded-xl p-4">
+              <p className="text-[10px] text-muted-foreground">
                 El PDF incluirá todos los registros de los módulos seleccionados en el rango de fechas indicado,
                 ordenados cronológicamente.
               </p>
@@ -711,17 +713,17 @@ export default function ExportarPDF() {
         )}
 
         {tab === 'agronomico' && (
-          <div className="bg-slate-900/60 border border-white/10 rounded-xl p-4 space-y-4">
+          <div className="bg-card border border-border rounded-xl p-4 space-y-4 shadow-sm">
             <div>
-              <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Finca (Opcional)</label>
-              <select value={fincaAgro} onChange={e => setFincaAgro(e.target.value)} className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-green-500/50 outline-none">
+              <label className="block text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Finca (Opcional)</label>
+              <select value={fincaAgro} onChange={e => setFincaAgro(e.target.value)} className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm text-foreground focus:border-green-600/50 focus:ring-1 focus:ring-green-600/25 outline-none">
                 <option value="">Todas las fincas</option>
                 {FINCAS.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Tipo de Reporte</label>
-              <select value={tipoAgro} onChange={e => setTipoAgro(e.target.value)} className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-green-500/50 outline-none">
+              <label className="block text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Tipo de Reporte</label>
+              <select value={tipoAgro} onChange={e => setTipoAgro(e.target.value)} className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm text-foreground focus:border-green-600/50 focus:ring-1 focus:ring-green-600/25 outline-none">
                 <option value="suelo">📊 Análisis de Suelo (pH, EC, NPK)</option>
                 <option value="produccion">🚜 Producción y Cosecha</option>
                 <option value="certificacion">🛡️ Certificación Ecológica</option>
@@ -735,15 +737,16 @@ export default function ExportarPDF() {
         {/* Error */}
         {error && (
           <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30">
-            <p className="text-sm text-red-400">{error}</p>
+            <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
           </div>
         )}
 
         {/* Botón generar */}
         <button
+          type="button"
           onClick={handleGenerar}
           disabled={generando || (tab === 'global' && modulos.size === 0)}
-          className={`w-full py-3.5 rounded-xl text-[#020617] font-black text-sm uppercase tracking-widest transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${tab === 'agronomico' ? 'bg-green-500 hover:bg-green-400' : 'bg-[#6d9b7d] hover:bg-sky-300'}`}
+          className={`w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-widest transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${tab === 'agronomico' ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-primary text-primary-foreground hover:opacity-90'}`}
         >
           {generando
             ? <><Loader2 className="w-4 h-4 animate-spin" /> Generando PDF…</>
@@ -753,8 +756,8 @@ export default function ExportarPDF() {
 
       </main>
 
-      <footer className="bg-slate-900/80 border-t border-white/10 px-4 py-1.5">
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+      <footer className="bg-card/95 backdrop-blur-md border-t border-border px-4 py-1.5">
+        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
           Marvic 360 · Exportar PDF · {tab === 'global' ? `${modulos.size} módulo(s)` : 'Reporte Agronómico'}
         </span>
       </footer>

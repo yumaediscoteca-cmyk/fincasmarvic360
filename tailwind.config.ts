@@ -20,7 +20,17 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Montserrat', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
       colors: {
+        /** Marca corporativa (tarjeta) */
+        marvic: {
+          brand: '#1b3022',
+          beige: '#d8d3c9',
+          sage: '#6d9b7d',
+          cream: '#f5f2eb',
+        },
         // ── Paleta Marvic: Verde Bosque Suave (reemplaza sky) ──
         sky: {
           50:  "#f1f7f3",

@@ -1,102 +1,129 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+/* Montserrat — misma familia que PDFs (OFL en public/fonts/OFL.txt) */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Montserrat-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Montserrat-Bold.ttf') format('truetype');
+}
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  /* ── LIGHT MODE: off-white cálido, no blanco nuclear ── */
+  /**
+   * Agrícola Marvic — identidad integral
+   * Marca: verde #1b3022, beige #d8d3c9, acento UI #6d9b7d
+   */
   :root {
-    --background: 40 25% 96%;        /* #f5f3ee — off-white cálido */
-    --foreground: 145 25% 12%;       /* verde-gris oscuro */
+    /* Fondo cálido, no blanco nuclear */
+    --background: 42 32% 95%;
+    --foreground: 146 30% 16%;
 
-    --card: 40 20% 98%;              /* crema muy claro */
-    --card-foreground: 145 25% 12%;
+    --card: 40 28% 97%;
+    --card-foreground: 146 30% 16%;
 
-    --popover: 40 20% 98%;
-    --popover-foreground: 145 25% 12%;
+    --popover: 40 28% 98%;
+    --popover-foreground: 146 30% 16%;
 
-    --primary: 142 20% 52%;          /* verde bosque suave #6d9b7d */
-    --primary-foreground: 40 25% 98%;
+    /* Acento acciones (sage) — legible sobre crema */
+    --primary: 142 22% 48%;
+    --primary-foreground: 42 35% 98%;
 
-    --secondary: 40 15% 92%;
-    --secondary-foreground: 145 25% 18%;
+    --secondary: 38 22% 91%;
+    --secondary-foreground: 146 28% 20%;
 
-    --muted: 40 15% 90%;
-    --muted-foreground: 145 10% 40%;
+    --muted: 38 18% 90%;
+    --muted-foreground: 146 12% 38%;
 
-    --accent: 30 45% 55%;
-    --accent-foreground: 40 25% 98%;
+    --accent: 38 35% 88%;
+    --accent-foreground: 146 32% 18%;
 
-    --destructive: 0 60% 50%;
-    --destructive-foreground: 40 25% 98%;
+    --destructive: 0 62% 48%;
+    --destructive-foreground: 42 35% 98%;
 
-    --border: 40 10% 80%;
-    --input: 40 10% 85%;
-    --ring: 142 20% 52%;
+    --border: 38 16% 82%;
+    --input: 38 18% 88%;
+    --ring: 142 22% 48%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 40 20% 94%;
-    --sidebar-foreground: 145 25% 18%;
-    --sidebar-primary: 142 20% 52%;
-    --sidebar-primary-foreground: 40 25% 98%;
-    --sidebar-accent: 40 15% 90%;
-    --sidebar-accent-foreground: 145 25% 18%;
-    --sidebar-border: 40 10% 80%;
-    --sidebar-ring: 142 20% 52%;
+    --sidebar-background: 38 26% 92%;
+    --sidebar-foreground: 146 28% 18%;
+    --sidebar-primary: 142 22% 48%;
+    --sidebar-primary-foreground: 42 35% 98%;
+    --sidebar-accent: 38 22% 88%;
+    --sidebar-accent-foreground: 146 28% 20%;
+    --sidebar-border: 38 14% 80%;
+    --sidebar-ring: 142 22% 48%;
 
-    --glass-bg: 40 20% 98% / 0.7;
-    --glass-border: 40 10% 75% / 0.4;
-    --success: 142 30% 42%;
-    --warning: 35 75% 50%;
-    --info: 200 45% 45%;
+    --glass-bg: 40 28% 98% / 0.72;
+    --glass-border: 38 14% 78% / 0.45;
+    --success: 142 28% 40%;
+    --warning: 32 72% 48%;
+    --info: 200 40% 42%;
+
+    /* Tokens marca (hex vía arbitrary en Tailwind: marvic-*) */
+    --marvic-brand: 146 28% 15%;
+    --marvic-beige: 40 14% 82%;
   }
 
-  /* ── DARK MODE: slate oscuro con acentos verde bosque ── */
+  /* Oscuro: bosque profundo (no slate azulado) */
   .dark {
-    --background: 222 30% 8%;        /* no negro puro */
-    --foreground: 40 15% 92%;
+    --background: 152 32% 7%;
+    --foreground: 40 18% 92%;
 
-    --card: 220 25% 12%;
-    --card-foreground: 40 15% 92%;
+    --card: 150 26% 10%;
+    --card-foreground: 40 18% 92%;
 
-    --popover: 220 25% 12%;
-    --popover-foreground: 40 15% 92%;
+    --popover: 150 26% 11%;
+    --popover-foreground: 40 18% 92%;
 
-    --primary: 142 22% 52%;          /* verde bosque #6d9b7d */
-    --primary-foreground: 222 30% 8%;
+    --primary: 142 24% 52%;
+    --primary-foreground: 152 32% 7%;
 
-    --secondary: 220 18% 18%;
-    --secondary-foreground: 40 15% 88%;
+    --secondary: 148 22% 14%;
+    --secondary-foreground: 40 16% 88%;
 
-    --muted: 220 15% 16%;
-    --muted-foreground: 220 10% 65%;
+    --muted: 150 18% 14%;
+    --muted-foreground: 40 10% 62%;
 
-    --accent: 30 50% 55%;
-    --accent-foreground: 222 30% 8%;
+    --accent: 148 20% 16%;
+    --accent-foreground: 40 18% 90%;
 
-    --destructive: 0 65% 50%;
-    --destructive-foreground: 40 15% 92%;
+    --destructive: 0 58% 48%;
+    --destructive-foreground: 40 18% 96%;
 
-    --border: 220 15% 25%;
-    --input: 220 15% 25%;
-    --ring: 142 22% 52%;
+    --border: 148 18% 20%;
+    --input: 148 18% 18%;
+    --ring: 142 24% 52%;
 
-    --sidebar-background: 222 30% 8%;
-    --sidebar-foreground: 40 15% 88%;
-    --sidebar-primary: 142 22% 52%;
-    --sidebar-primary-foreground: 222 30% 8%;
-    --sidebar-accent: 220 18% 18%;
-    --sidebar-accent-foreground: 40 15% 88%;
-    --sidebar-border: 220 15% 25%;
-    --sidebar-ring: 142 22% 52%;
+    --sidebar-background: 152 34% 6%;
+    --sidebar-foreground: 40 16% 88%;
+    --sidebar-primary: 142 24% 52%;
+    --sidebar-primary-foreground: 152 32% 7%;
+    --sidebar-accent: 150 22% 13%;
+    --sidebar-accent-foreground: 40 16% 88%;
+    --sidebar-border: 148 18% 18%;
+    --sidebar-ring: 142 24% 52%;
 
-    --glass-bg: 220 25% 12% / 0.7;
-    --glass-border: 220 15% 30% / 0.4;
-    --success: 142 35% 48%;
-    --warning: 35 80% 55%;
-    --info: 200 50% 55%;
+    --glass-bg: 150 26% 10% / 0.75;
+    --glass-border: 148 18% 24% / 0.45;
+    --success: 142 30% 45%;
+    --warning: 35 75% 52%;
+    --info: 200 45% 55%;
+
+    --marvic-brand: 146 28% 88%;
+    --marvic-beige: 40 14% 70%;
   }
 }
 
@@ -106,11 +133,10 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
-    font-family: 'Inter', sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Montserrat', ui-sans-serif, system-ui, sans-serif;
   }
 
-  /* iOS: evita zoom automático al enfocar inputs (solo viewports estrechos) */
   @media (max-width: 767px) {
     input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
     textarea,
@@ -128,37 +154,42 @@
   .glass-strong {
     @apply bg-card/80 backdrop-blur-2xl border border-border/40 shadow-2xl;
   }
+
+  /** Texto / bordes marca corporativa */
+  .text-marvic-brand {
+    color: hsl(var(--marvic-brand));
+  }
 }
 
-/* ── Estándar de botones (verde bosque) ─────────────────── */
 @layer components {
-  /* Primario: verde bosque — acción principal (guardar, confirmar) */
   .btn-primary {
-    @apply bg-sky-400 text-white font-medium text-sm px-4 py-2 rounded
-           hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors;
+    @apply bg-primary text-primary-foreground font-semibold text-sm px-4 py-2 rounded-lg
+           hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity;
   }
 
-  /* Secundario: acción neutra (cancelar, ver) */
   .btn-secondary {
-    @apply border border-border bg-transparent text-muted-foreground text-sm px-4 py-2 rounded
-           hover:border-foreground/40 hover:text-foreground disabled:opacity-40 transition-colors;
+    @apply border border-border bg-transparent text-muted-foreground text-sm px-4 py-2 rounded-lg
+           hover:border-foreground/30 hover:text-foreground disabled:opacity-40 transition-colors;
   }
 
-  /* Peligro: eliminar, operaciones destructivas */
   .btn-danger {
-    @apply border border-red-500/50 bg-transparent text-red-400 text-sm px-4 py-2 rounded
-           hover:border-red-400 hover:text-red-300 disabled:opacity-40 transition-colors;
+    @apply border border-destructive/50 bg-transparent text-destructive text-sm px-4 py-2 rounded-lg
+           hover:bg-destructive/10 disabled:opacity-40 transition-colors;
+  }
+
+  /** Cabeceras de página alineadas a tarjetas / paneles */
+  .app-header-bar {
+    @apply sticky top-0 z-50 w-full border-b border-border bg-card/90 backdrop-blur-md
+           text-foreground pt-[max(0.25rem,env(safe-area-inset-top,0px))];
   }
 }
 
-/* ── Leaflet overrides ─────────────────────────────── */
 .leaflet-container {
   background: hsl(var(--background));
   width: 100%;
   height: 100%;
 }
 
-/* ── Labels de sectores en el mapa ─────────────────── */
 .parcel-label {
   background: transparent !important;
   border: none !important;
@@ -167,22 +198,22 @@
 
 .parcel-label span {
   display: inline-block;
-  font-family: 'Inter', sans-serif;
-  font-weight: 900;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 800;
   color: #ffffff;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   white-space: nowrap !important;
   overflow: visible;
   text-shadow:
-    -1px -1px 0 rgba(0,0,0,1),
-     1px -1px 0 rgba(0,0,0,1),
-    -1px  1px 0 rgba(0,0,0,1),
-     1px  1px 0 rgba(0,0,0,1),
-     0    0   5px rgba(0,0,0,0.8);
+    -1px -1px 0 rgba(0, 0, 0, 1),
+    1px -1px 0 rgba(0, 0, 0, 1),
+    -1px 1px 0 rgba(0, 0, 0, 1),
+    1px 1px 0 rgba(0, 0, 0, 1),
+    0 0 5px rgba(0, 0, 0, 0.8);
   pointer-events: none;
   line-height: 1;
   padding: 2px 4px;
-  background: rgba(0,0,0,0.5);
-  border-radius: 3px;
+  background: rgba(27, 48, 34, 0.75);
+  border-radius: 4px;
 }
