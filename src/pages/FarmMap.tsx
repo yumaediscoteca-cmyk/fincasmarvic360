@@ -36,25 +36,46 @@ function getSueloColor(param: string, val: number | null | undefined): string {
 }
 
 // ── LEYENDA ───────────────────────────────────────────
+const LEGEND_BOX =
+  'rounded-lg border border-slate-200 bg-white/90 px-2 py-1.5 shadow-lg dark:border-white/10 dark:bg-slate-900/85 md:px-3 md:py-2'
+
 function MapLegend({ activeMenu, sueloParam }: { activeMenu: string | null, sueloParam: string }) {
   if (activeMenu === 'suelo') {
     return (
-      <div className="absolute z-[1000] bg-white/90 dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 space-y-1.5 shadow-lg max-md:bottom-[5.5rem] max-md:left-2 max-md:max-w-[min(92vw,280px)] md:bottom-8 md:left-4">
-        <p className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 border-b border-slate-200 dark:border-white/10 pb-1">Capa: {sueloParam}</p>
-        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-[#22c55e]" /><span className="text-[10px] text-slate-700 dark:text-slate-300 font-medium">Óptimo</span></div>
-        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-[#eab308]" /><span className="text-[10px] text-slate-700 dark:text-slate-300 font-medium">Alerta / Precaución</span></div>
-        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-[#ef4444]" /><span className="text-[10px] text-slate-700 dark:text-slate-300 font-medium">Crítico</span></div>
-        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-[#64748b]" /><span className="text-[10px] text-slate-700 dark:text-slate-300 font-medium">Sin datos</span></div>
+      <div
+        className={`absolute z-[1000] ${LEGEND_BOX} max-md:bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] max-md:left-2 max-md:max-h-[min(22vh,9rem)] max-md:max-w-[min(48vw,11rem)] max-md:space-y-1 max-md:overflow-y-auto md:bottom-8 md:left-4 md:max-w-none md:space-y-1.5 [&::-webkit-scrollbar]:w-1`}
+      >
+        <p className="mb-1 border-b border-slate-200 pb-1 text-[8px] font-black uppercase tracking-widest text-slate-500 dark:border-white/10 dark:text-slate-400 md:text-[9px]">
+          Capa: {sueloParam}
+        </p>
+        <div className="flex items-center gap-1.5 md:gap-2">
+          <span className="h-2 w-2 shrink-0 rounded-sm bg-[#22c55e] md:h-2.5 md:w-2.5" />
+          <span className="text-[9px] font-medium text-slate-700 dark:text-slate-300 md:text-[10px]">Óptimo</span>
+        </div>
+        <div className="flex items-center gap-1.5 md:gap-2">
+          <span className="h-2 w-2 shrink-0 rounded-sm bg-[#eab308] md:h-2.5 md:w-2.5" />
+          <span className="text-[9px] font-medium text-slate-700 dark:text-slate-300 md:text-[10px]">Alerta</span>
+        </div>
+        <div className="flex items-center gap-1.5 md:gap-2">
+          <span className="h-2 w-2 shrink-0 rounded-sm bg-[#ef4444] md:h-2.5 md:w-2.5" />
+          <span className="text-[9px] font-medium text-slate-700 dark:text-slate-300 md:text-[10px]">Crítico</span>
+        </div>
+        <div className="flex items-center gap-1.5 md:gap-2">
+          <span className="h-2 w-2 shrink-0 rounded-sm bg-[#64748b] md:h-2.5 md:w-2.5" />
+          <span className="text-[9px] font-medium text-slate-700 dark:text-slate-300 md:text-[10px]">Sin datos</span>
+        </div>
       </div>
     )
   }
   const entries = Object.entries(STATUS_COLORS) as [ParcelStatus, string][]
   return (
-    <div className="absolute z-[1000] bg-white/90 dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 space-y-1 shadow-lg max-md:bottom-[5.5rem] max-md:left-2 max-md:max-w-[min(92vw,280px)] md:bottom-8 md:left-4">
+    <div
+      className={`absolute z-[1000] ${LEGEND_BOX} max-md:bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] max-md:left-2 max-md:max-h-[min(26vh,10rem)] max-md:max-w-[min(48vw,11rem)] max-md:space-y-0.5 max-md:overflow-y-auto md:bottom-8 md:left-4 md:space-y-1 md:max-w-none [&::-webkit-scrollbar]:w-1`}
+    >
       {entries.map(([status, color]) => (
-        <div key={status} className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: color }} />
-          <span className="text-[10px] text-slate-600 dark:text-slate-400 font-medium uppercase tracking-wide">
+        <div key={status} className="flex items-center gap-1.5 md:gap-2">
+          <span className="h-2 w-2 shrink-0 rounded-sm md:h-2.5 md:w-2.5" style={{ backgroundColor: color }} />
+          <span className="text-[8px] font-medium uppercase tracking-wide text-slate-600 dark:text-slate-400 md:text-[10px]">
             {STATUS_LABELS[status]}
           </span>
         </div>
@@ -141,7 +162,10 @@ function SectorTooltip({ parcel, onClose }: { parcel: ParcelFeature; onClose: ()
           <p className="text-[11px] font-bold text-slate-900 dark:text-white">{p.codigo || '—'}</p>
         </div>
       </div>
-      <p className="text-[9px] text-slate-500 dark:text-slate-600 text-center mt-2 uppercase tracking-widest">
+      <p className="text-[9px] text-slate-500 dark:text-slate-600 text-center mt-2 uppercase tracking-widest md:hidden">
+        Usa el menú superior para acceder
+      </p>
+      <p className="text-[9px] text-slate-500 dark:text-slate-600 text-center mt-2 uppercase tracking-widest hidden md:block">
         Usa el menú derecho para acceder
       </p>
     </div>
@@ -408,8 +432,8 @@ export default function FarmMap() {
 
       <div ref={mapContainerRef} className="h-full w-full z-0" />
 
-      {/* PANEL IDENTIDAD */}
-      <div className="absolute z-[1000] bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-3 shadow-lg max-md:top-14 max-md:left-3 max-md:right-14 max-md:min-w-0 md:top-4 md:left-4 md:right-auto md:min-w-[200px]">
+      {/* PANEL IDENTIDAD — escritorio */}
+      <div className="hidden md:block absolute z-[1000] bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-3 shadow-lg top-4 left-4 min-w-[200px]">
         <p className="text-[10px] font-black text-[#6d9b7d] uppercase tracking-[0.3em] mb-1">Marvic 360</p>
         <p className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight leading-none">{decodedFarm}</p>
         <div className="flex items-center gap-2 mt-2">
@@ -419,16 +443,75 @@ export default function FarmMap() {
         </div>
       </div>
 
-      {/* BOTÓN VOLVER */}
+      {/* CABECERA + HERRAMIENTAS — móvil (evita solape con leyenda y menú vertical) */}
+      <div className="md:hidden absolute z-[1000] left-0 right-0 top-0 border-b border-slate-200/90 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 shadow-md backdrop-blur-sm">
+        <div className="pt-[max(0.35rem,env(safe-area-inset-top,0px))] pl-2 pr-14 pb-1.5">
+          <div className="flex items-start gap-2">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 shadow-sm transition-colors hover:border-[#6d9b7d]/40"
+              aria-label="Volver"
+            >
+              <ArrowLeft className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[#6d9b7d]">Marvic 360</p>
+              <p className="truncate text-sm font-black uppercase leading-tight tracking-tight text-slate-900 dark:text-white">
+                {decodedFarm}
+              </p>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-green-400" />
+                <span className="text-[9px] font-bold uppercase tracking-widest text-green-500 dark:text-green-400">
+                  Operativo
+                </span>
+              </div>
+            </div>
+            <span className="shrink-0 pt-1 font-mono text-[9px] text-slate-500 dark:text-slate-400">{horaStr}</span>
+          </div>
+          <div className="mt-1.5 flex gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {MENU_ITEMS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveMenu(activeMenu === id ? null : id)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wide shadow-sm transition-all ${
+                  activeMenu === id
+                    ? 'border-[#6d9b7d]/40 bg-[#6d9b7d]/10 text-[#6d9b7d] dark:border-[#6d9b7d]/60 dark:bg-[#6d9b7d]/20'
+                    : 'border-slate-200 bg-white/90 text-slate-600 dark:border-white/10 dark:bg-slate-900/90 dark:text-slate-300'
+                }`}
+              >
+                <Icon className="h-3 w-3 shrink-0" />
+                <span className="whitespace-nowrap">{label}</span>
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setInformeError(null)
+                setShowInformeFinca(true)
+              }}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wide text-slate-600 shadow-sm transition-all dark:border-white/10 dark:bg-slate-900/90 dark:text-slate-300"
+            >
+              <FileText className="h-3 w-3 shrink-0" />
+              <span className="whitespace-nowrap">Informe PDF</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* BOTÓN VOLVER — escritorio */}
       <button
+        type="button"
         onClick={() => navigate(-1)}
-        className="absolute z-[1000] w-8 h-8 rounded-lg border border-slate-200 dark:border-white/10 flex items-center justify-center bg-white/90 dark:bg-slate-900/90 hover:border-[#6d9b7d]/40 shadow-lg transition-colors max-md:top-[max(0.75rem,env(safe-area-inset-top))] max-md:left-14 md:top-4 md:left-[220px]"
+        className="absolute z-[1000] top-4 left-[220px] hidden h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white/90 shadow-lg transition-colors hover:border-[#6d9b7d]/40 dark:border-white/10 dark:bg-slate-900/90 md:flex"
+        aria-label="Volver"
       >
-        <ArrowLeft className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+        <ArrowLeft className="h-4 w-4 text-slate-500 dark:text-slate-400" />
       </button>
 
-      {/* MENÚ VERTICAL DERECHA */}
-      <div className="absolute z-[1000] flex flex-col gap-1 max-md:top-14 max-md:right-3 max-md:max-h-[min(38vh,320px)] max-md:overflow-y-auto max-md:pr-0.5 md:top-4 md:right-4 md:max-h-none md:overflow-visible">
+      {/* MENÚ VERTICAL DERECHA — escritorio */}
+      <div className="absolute z-[1000] top-4 right-4 hidden flex-col gap-1 md:flex">
         {MENU_ITEMS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -457,7 +540,7 @@ export default function FarmMap() {
 
       {/* PANEL — SECTORES */}
       {activeMenu === 'sectores' && (
-        <div className="absolute z-[999] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-lg flex flex-col overflow-hidden shadow-2xl max-md:inset-x-3 max-md:top-14 max-md:bottom-[5.5rem] max-md:w-auto max-md:max-h-[min(70vh,calc(100dvh-8rem))] md:top-4 md:right-52 md:bottom-10 md:left-auto md:w-72 md:max-h-none">
+        <div className="absolute z-[999] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-lg flex flex-col overflow-hidden shadow-2xl max-md:inset-x-3 max-md:top-[calc(env(safe-area-inset-top,0px)+8.5rem)] max-md:bottom-[5.5rem] max-md:w-auto max-md:max-h-[min(65vh,calc(100dvh-10rem))] md:top-4 md:right-52 md:bottom-10 md:left-auto md:w-72 md:max-h-none">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 shrink-0">
             <span className="text-[11px] font-black text-[#6d9b7d] uppercase tracking-widest">Sectores</span>
             <button onClick={() => setActiveMenu(null)}><X className="w-4 h-4 text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-white" /></button>
@@ -505,7 +588,7 @@ export default function FarmMap() {
 
       {/* PANEL — CAPA SUELO */}
       {activeMenu === 'suelo' && (
-        <div className="absolute z-[999] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-lg flex flex-col overflow-hidden shadow-2xl max-md:inset-x-3 max-md:top-14 max-md:bottom-[5.5rem] max-md:w-auto max-md:max-h-[min(70vh,calc(100dvh-8rem))] md:top-4 md:right-52 md:bottom-10 md:left-auto md:w-72 md:max-h-none">
+        <div className="absolute z-[999] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-lg flex flex-col overflow-hidden shadow-2xl max-md:inset-x-3 max-md:top-[calc(env(safe-area-inset-top,0px)+8.5rem)] max-md:bottom-[5.5rem] max-md:w-auto max-md:max-h-[min(65vh,calc(100dvh-10rem))] md:top-4 md:right-52 md:bottom-10 md:left-auto md:w-72 md:max-h-none">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 shrink-0 bg-slate-50 dark:bg-slate-800/50">
             <span className="text-[11px] font-black text-[#6d9b7d] uppercase tracking-widest flex items-center gap-2">
               <Layers className="w-3.5 h-3.5" /> Capa Agronómica
@@ -538,7 +621,7 @@ export default function FarmMap() {
 
       {/* PANEL — REGISTRAR */}
       {activeMenu === 'registrar' && (
-        <div className="absolute z-[999] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-lg flex flex-col overflow-hidden shadow-2xl max-md:inset-x-3 max-md:top-14 max-md:bottom-[5.5rem] max-md:w-auto max-md:max-h-[min(70vh,calc(100dvh-8rem))] md:top-4 md:right-52 md:bottom-10 md:left-auto md:w-72 md:max-h-none">
+        <div className="absolute z-[999] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-lg flex flex-col overflow-hidden shadow-2xl max-md:inset-x-3 max-md:top-[calc(env(safe-area-inset-top,0px)+8.5rem)] max-md:bottom-[5.5rem] max-md:w-auto max-md:max-h-[min(65vh,calc(100dvh-10rem))] md:top-4 md:right-52 md:bottom-10 md:left-auto md:w-72 md:max-h-none">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 shrink-0">
             <div>
               <span className="text-[11px] font-black text-[#6d9b7d] uppercase tracking-widest">Registrar</span>
@@ -577,7 +660,7 @@ export default function FarmMap() {
 
       {/* PANEL — ANÁLISIS */}
       {activeMenu === 'analisis' && (
-        <div className="absolute z-[999] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-lg flex flex-col overflow-hidden shadow-2xl max-md:inset-x-3 max-md:top-14 max-md:bottom-[5.5rem] max-md:w-auto max-md:max-h-[min(70vh,calc(100dvh-8rem))] md:top-4 md:right-52 md:bottom-10 md:left-auto md:w-72 md:max-h-none">
+        <div className="absolute z-[999] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-lg flex flex-col overflow-hidden shadow-2xl max-md:inset-x-3 max-md:top-[calc(env(safe-area-inset-top,0px)+8.5rem)] max-md:bottom-[5.5rem] max-md:w-auto max-md:max-h-[min(65vh,calc(100dvh-10rem))] md:top-4 md:right-52 md:bottom-10 md:left-auto md:w-72 md:max-h-none">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 shrink-0">
             <div>
               <span className="text-[11px] font-black text-[#6d9b7d] uppercase tracking-widest">Análisis</span>
@@ -621,7 +704,7 @@ export default function FarmMap() {
 
       {/* PANEL — HISTÓRICO */}
       {activeMenu === 'historico' && (
-        <div className="absolute z-[999] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-lg flex flex-col overflow-hidden shadow-2xl max-md:inset-x-3 max-md:top-14 max-md:bottom-[5.5rem] max-md:w-auto max-md:max-h-[min(70vh,calc(100dvh-8rem))] md:top-4 md:right-52 md:bottom-10 md:left-auto md:w-[480px] md:max-h-none">
+        <div className="absolute z-[999] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-lg flex flex-col overflow-hidden shadow-2xl max-md:inset-x-3 max-md:top-[calc(env(safe-area-inset-top,0px)+8.5rem)] max-md:bottom-[5.5rem] max-md:w-auto max-md:max-h-[min(65vh,calc(100dvh-10rem))] md:top-4 md:right-52 md:bottom-10 md:left-auto md:w-[480px] md:max-h-none">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 shrink-0">
             <div>
               <span className="text-[11px] font-black text-[#6d9b7d] uppercase tracking-widest">Histórico</span>
@@ -643,7 +726,7 @@ export default function FarmMap() {
 
       {/* PANEL — TRAZABILIDAD / ALERTAS */}
       {['trazabilidad', 'alertas'].includes(activeMenu ?? '') && (
-        <div className="absolute z-[999] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-lg flex flex-col overflow-hidden shadow-2xl max-md:inset-x-3 max-md:top-14 max-md:bottom-[5.5rem] max-md:w-auto max-md:max-h-[min(70vh,calc(100dvh-8rem))] md:top-4 md:right-52 md:bottom-10 md:left-auto md:w-72 md:max-h-none">
+        <div className="absolute z-[999] bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-lg flex flex-col overflow-hidden shadow-2xl max-md:inset-x-3 max-md:top-[calc(env(safe-area-inset-top,0px)+8.5rem)] max-md:bottom-[5.5rem] max-md:w-auto max-md:max-h-[min(65vh,calc(100dvh-10rem))] md:top-4 md:right-52 md:bottom-10 md:left-auto md:w-72 md:max-h-none">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 shrink-0">
             <span className="text-[11px] font-black text-[#6d9b7d] uppercase tracking-widest">
               {MENU_ITEMS.find(m => m.id === activeMenu)?.label}

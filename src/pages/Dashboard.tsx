@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
-  Sun, Moon, Activity, Map as MapIcon, Tractor, AlertTriangle,
+  Activity, Map as MapIcon, Tractor, AlertTriangle,
   CheckCircle2, Leaf, FileText, CloudRain, Wind,
   Loader2, ClipboardList, ChevronDown
 } from 'lucide-react';
@@ -172,7 +172,7 @@ function KpiCard({ title, value, icon: Icon, color }: { title: string, value: Re
 
 export default function Dashboard() {
   const [now, setNow] = useState(new Date());
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const isDark = theme === 'dark';
 
   // Panel LIA
@@ -302,32 +302,39 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen flex flex-col relative overflow-y-auto bg-slate-50 dark:bg-[#020617] transition-colors pb-10">
       
-      {/* Controles superiores absolutos */}
-      <div className="fixed z-[60] flex items-center gap-3 top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))]">
-        {user && (
-          <div className="hidden sm:flex items-center gap-3 mr-4">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{user.email}</span>
-            <button onClick={handleSignOut} className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">Salir</button>
-          </div>
-        )}
-        <button onClick={toggleTheme} className="flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 shadow-sm transition-colors hover:bg-slate-100 dark:hover:bg-slate-700">
-          {isDark ? <Sun size={14}/> : <Moon size={14}/>}
-        </button>
-      </div>
+      {/* Usuario (tema global en AppLayout → GlobalThemeToggle) */}
+      {user && (
+        <div className="fixed z-[60] hidden sm:flex items-center gap-3 top-[max(1rem,env(safe-area-inset-top))] right-[4.75rem] max-w-[min(50vw,calc(100%-5.5rem))]">
+          <span className="truncate text-xs font-medium text-slate-500 dark:text-slate-400">{user.email}</span>
+          <button type="button" onClick={handleSignOut} className="shrink-0 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">Salir</button>
+        </div>
+      )}
 
       <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full pt-16 sm:pt-10 space-y-6">
         
-        {/* Cabecera */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+        {/* Cabecera: títulos a la izquierda; logo + CTA agrupados (logo más grande, alineado con Informe) */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <img src="/MARVIC_logo.png" alt="Marvic" className={`h-8 object-contain mb-3 ${isDark ? 'brightness-0 invert opacity-90' : ''}`} draggable={false} />
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Dashboard Operativo</h1>
+            <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white sm:text-3xl">Dashboard Operativo</h1>
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{fechaStr} · <span className="font-mono">{horaStr}</span></p>
           </div>
-          <button onClick={handleGenerarInforme} disabled={generatingPdf} className="btn-primary flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-sky-500/20 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-95 w-full sm:w-auto">
-            {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin"/> : <FileText className="w-4 h-4"/>}
-            Informe del Día
-          </button>
+          <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-end">
+            <img
+              src="/MARVIC_logo.png"
+              alt="Marvic"
+              className={`h-14 w-auto max-w-[220px] self-center object-contain sm:h-20 sm:max-w-[280px] sm:self-end ${isDark ? 'brightness-0 invert opacity-90' : ''}`}
+              draggable={false}
+            />
+            <button
+              type="button"
+              onClick={handleGenerarInforme}
+              disabled={generatingPdf}
+              className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[11px] font-black uppercase tracking-widest shadow-lg shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 sm:w-auto"
+            >
+              {generatingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              Informe del Día
+            </button>
+          </div>
         </div>
 
         {/* Fila 1: KPIs & Metereología */}

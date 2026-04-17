@@ -4,6 +4,7 @@ import { useRegistrarEntradaQR, useRegistrarSalidaQR } from '@/hooks/usePresenci
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
 import { CheckCircle2, Users, Clock, AlertCircle } from 'lucide-react'
+import GlobalThemeToggle from '@/components/GlobalThemeToggle'
 
 type PresenciaActiva = {
   id: string;
@@ -126,6 +127,8 @@ export default function QRCuadrilla() {
   // ════════════════════════════════════════════════════════════════
   if (stage === 'entrada') {
     return (
+      <>
+      <GlobalThemeToggle />
       <div className="min-h-screen flex flex-col justify-center bg-[#020617] px-6">
         <div className="text-center mb-10">
           <Users className="w-12 h-12 text-[#6d9b7d] mx-auto mb-4" />
@@ -156,6 +159,7 @@ export default function QRCuadrilla() {
           Marvic 360 · Control de personal
         </p>
       </div>
+      </>
     )
   }
 
@@ -164,6 +168,8 @@ export default function QRCuadrilla() {
   // ════════════════════════════════════════════════════════════════
   if (stage === 'activa') {
     return (
+      <>
+      <GlobalThemeToggle />
       <div className="min-h-screen flex flex-col justify-center bg-[#020617] px-6">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
@@ -236,6 +242,7 @@ export default function QRCuadrilla() {
           Marvic 360 · Control de personal
         </p>
       </div>
+      </>
     )
   }
 
@@ -243,6 +250,8 @@ export default function QRCuadrilla() {
   // PANTALLA: CONFIRMADA (salida registrada)
   // ════════════════════════════════════════════════════════════════
   return (
+    <>
+    <GlobalThemeToggle />
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#020617] text-center px-6">
       <CheckCircle2 className="w-16 h-16 text-green-400 mb-4" />
       <p className="text-lg font-black text-green-400 uppercase tracking-widest">
@@ -255,5 +264,6 @@ export default function QRCuadrilla() {
         Marvic 360 · Control de personal
       </p>
     </div>
+    </>
   )
 }

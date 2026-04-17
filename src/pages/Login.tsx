@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import GlobalThemeToggle from '@/components/GlobalThemeToggle';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -32,6 +33,8 @@ const Login: React.FC = () => {
   };
 
   return (
+    <>
+      <GlobalThemeToggle />
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-card rounded-lg shadow-lg p-8 border border-border">
         {/* Logo Marvic */}
@@ -54,6 +57,8 @@ const Login: React.FC = () => {
             </label>
             <Input
               type="email"
+              name="email"
+              autoComplete="email"
               placeholder="tu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -70,6 +75,8 @@ const Login: React.FC = () => {
             </label>
             <Input
               type="password"
+              name="password"
+              autoComplete="current-password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -102,6 +109,7 @@ const Login: React.FC = () => {
         </p>
       </div>
     </div>
+    </>
   );
 };
 
