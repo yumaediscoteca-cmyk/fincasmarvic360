@@ -333,6 +333,14 @@ export default function FarmMap() {
     tractoresLayerRef.current = layerGroup;
   }, [showTractores, tractoresPosiciones]);
 
+  // Debe ejecutarse en todo render: no colocar después de `if (loading) return` (Rules of Hooks)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const id = window.setTimeout(() => map.invalidateSize(), 320)
+    return () => window.clearTimeout(id)
+  }, [activeMenu])
+
   // ── Generación PDF de finca ──────────────────────────────────
   async function generarPDFFinca() {
     setGenerandoInforme(true)
@@ -394,13 +402,6 @@ export default function FarmMap() {
   const parcelNombre    = selectedParcel?.properties.parcela ?? ''
 
   const closeModal = () => setActiveModal(null)
-
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    const id = window.setTimeout(() => map.invalidateSize(), 320)
-    return () => window.clearTimeout(id)
-  }, [activeMenu])
 
   return (
     <div className="h-screen w-screen relative overflow-hidden bg-slate-50 dark:bg-[#020617] transition-colors">

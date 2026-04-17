@@ -32,7 +32,16 @@ import { ErrorBoundary } from "./pages/ErrorBoundary";
 import { PWAUpdatePrompt } from "./components/PWAUpdatePrompt";
 import { StabilityProvider } from "@/stability";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,        // 30s antes de marcar como "stale"
+      refetchOnWindowFocus: false, // NO refetch cuando vuelves a la app (crítico en móvil)
+      retry: 1,                  // Reintentar 1 vez, no 3 por defecto
+      gcTime: 5 * 60 * 1000,     // Garbage collect en 5 min
+    },
+  },
+});
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();

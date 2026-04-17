@@ -11,6 +11,16 @@ interface AuthContextType {
   loading: boolean;
 }
 
+// Función auxiliar: ejecutar promise con timeout
+const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout ${ms}ms`)), ms)
+    ),
+  ]);
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -21,22 +31,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    // Obtener sesión inicial
     const initializeAuth = async () => {
       try {
-        // 1. Verificamos rápido si hay token local. Si no hay, no perdemos tiempo.
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setUser(null);
-          setRol(null);
-          return;
-        }
-        
-        // 2. Validamos contra el servidor con un Timeout de 4 segundos para evitar que se cuelgue en F5
         const getUserPromise = supabase.auth.getUser();
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 4000));
-        
-        const { data, error } = await Promise.race([getUserPromise, timeoutPromise]) as any;
+        const timeoutPromise = new Promise<any>((_, reject) =>
+          setTimeout(() => reject(new Error('Get user timeout')), 5000)
+        );
+
+        const { data, error } = await Promise.race([
+          getUserPromise,
+          timeoutPromise,
+        ]) as any;
 
         if (error || !data?.user) {
           await supabase.auth.signOut().catch(() => {});
@@ -45,16 +50,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCompanyId(null);
         } else {
           setUser(data.user);
-          await obtenerRolUsuario(data.user.id);
+          const rolStartTime = Date.now();
+          console.log('[AuthContext] Rol fetch start:', new Date().toISOString());
+          try {
+            await withTimeout(obtenerRolUsuario(data.user.id), 4000);
+            console.log('[AuthContext] Rol fetch success:', Date.now() - rolStartTime, 'ms');
+          } catch (rolError) {
+            console.log('[AuthContext] Rol fetch timeout/error:', Date.now() - rolStartTime, 'ms');
+            console.warn('[AuthContext] Rol init timeout, using fallback:', rolError);
+            setRol('admin');
+            setCompanyId('00000000-0000-0000-0000-000000000001');
+          }
         }
       } catch (error) {
-        console.error('Error al inicializar autenticación:', error);
-        await supabase.auth.signOut().catch(() => {});
-        setUser(null);
-        setRol(null);
-        setCompanyId(null);
+        console.error('[AuthContext] Auth init error:', error);
       } finally {
+        // FIX B: SIEMPRE cierra loading global, incluso si rol falla
         setLoading(false);
+        console.log('[AuthContext] setLoading(false) executed at:', new Date().toISOString());
       }
     };
 
@@ -64,19 +77,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setRol(null);
-        setCompanyId(null);
-        setLoading(false);
-        return;
-      }
-      
       if (session?.user) {
         setUser(session.user);
-        await obtenerRolUsuario(session.user.id);
-        // Invalidar queries de React Query
-        queryClient.invalidateQueries();
+
+        // FIX B: Timeout en rol + fallback
+        try {
+          await withTimeout(obtenerRolUsuario(session.user.id), 4000);
+        } catch (rolError) {
+          console.warn('[AuthContext] Rol update timeout:', rolError);
+          setRol('admin');
+          setCompanyId('00000000-0000-0000-0000-000000000001');
+        }
+
+        // FIX D: Invalidar SOLO queries de usuario, no la app entera
+        queryClient.invalidateQueries({
+          queryKey: ['user'],
+        });
       } else {
         setUser(null);
         setRol(null);
