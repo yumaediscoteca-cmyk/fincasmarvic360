@@ -22,6 +22,7 @@ import { useUbicaciones } from '../hooks/useInventario';
 import { useCatalogoLocal } from '@/hooks/useCatalogoLocal';
 import { SelectWithOther, AudioInput, PhotoAttachment, RecordActions } from '@/components/base';
 import { toast } from '@/hooks/use-toast';
+import { PageShell } from '@/components/layout/PageShell';
 import { uploadImage, buildStoragePath } from '../utils/uploadImage';
 import {
   generarPDFCorporativoBase,
@@ -39,7 +40,7 @@ type TabType = 'camiones' | 'vehiculos' | 'conductores' | 'viajes' | 'mantenimie
 
 // ── Constantes ────────────────────────────────────────────────
 
-const INPUT  = 'w-full bg-background border border-input rounded-lg px-3 py-2 text-xs text-foreground focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/25 focus:outline-none';
+const INPUT  = 'w-full bg-background border border-input rounded-lg px-3 py-2 text-xs text-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/25 focus:outline-none';
 const LABEL  = 'block text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1';
 
 const MARCAS_CAMION   = ['MAN', 'Iveco', 'Volvo', 'DAF', 'Mercedes-Benz', 'Renault Trucks', 'Scania', 'FUSO'];
@@ -59,7 +60,7 @@ const ESTADO_LABEL: Record<string, string> = {
 };
 const ESTADO_CLS: Record<string, string> = {
   disponible:   'text-green-400 border-green-400/60',
-  en_uso:       'text-sky-400 border-sky-400/60',
+  en_uso:       'text-primary border-primary/60',
   mantenimiento:'text-amber-400 border-amber-400/60',
   baja:         'text-red-400 border-red-400/60',
 };
@@ -200,7 +201,7 @@ const ModalCamion = React.memo(function ModalCamion({
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
-          <Truck className="w-5 h-5 text-purple-400" />
+          <Truck className="w-5 h-5 text-primary" />
           <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">
             {isEdit ? `Editar camión${initial!.codigo_interno ? ' · ' + initial!.codigo_interno : ''}` : 'Nuevo camión'}
           </p>
@@ -389,7 +390,7 @@ const ModalVehiculo = React.memo(function ModalVehiculo({
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
-          <Car className="w-5 h-5 text-purple-400" />
+          <Car className="w-5 h-5 text-primary" />
           <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">
             {isEdit ? `Editar vehículo${initial!.codigo_interno ? ' · ' + initial!.codigo_interno : ''}` : 'Nuevo vehículo de empresa'}
           </p>
@@ -565,7 +566,7 @@ const ModalViaje = React.memo(function ModalViaje({
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
-          <MapPin className="w-5 h-5 text-purple-400" />
+          <MapPin className="w-5 h-5 text-primary" />
           <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">
             {isEdit ? 'Editar viaje' : 'Registrar viaje'}
           </p>
@@ -635,9 +636,9 @@ const ModalViaje = React.memo(function ModalViaje({
             </div>
           </div>
           {horas != null && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-purple-500/5 rounded-lg border border-purple-500/20">
-              <Clock className="w-3.5 h-3.5 text-purple-400" />
-              <span className="text-[10px] font-black text-purple-400">{horas}h de viaje</span>
+            <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 rounded-lg border border-primary/20">
+              <Clock className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[10px] font-black text-primary">{horas}h de viaje</span>
             </div>
           )}
           <div className="grid grid-cols-3 gap-2">
@@ -767,7 +768,7 @@ const ModalMantenimiento = React.memo(function ModalMantenimiento({
     <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
-          <Wrench className="w-5 h-5 text-purple-400" />
+          <Wrench className="w-5 h-5 text-primary" />
           <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">
             {isEdit ? 'Editar mantenimiento' : 'Nuevo mantenimiento'}
           </p>
@@ -933,7 +934,7 @@ const ModalCombustible = React.memo(function ModalCombustible({
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="bg-card border border-border rounded-xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
-          <Fuel className="w-5 h-5 text-purple-400" />
+          <Fuel className="w-5 h-5 text-primary" />
           <p className="flex-1 text-[11px] font-black text-foreground uppercase tracking-wider">
             {isEdit ? 'Editar repostaje' : 'Nuevo repostaje'}
           </p>
@@ -1193,6 +1194,14 @@ export default function Logistica() {
       else if (op === 3) await generarFlota();
       else if (op === 4) await generarMantenimientos();
       else               await generarResumen();
+      toast({ title: 'PDF generado', description: 'Revisa la carpeta de descargas.' });
+    } catch (e) {
+      console.error('PDF logística:', e);
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      });
     } finally {
       setGenerandoPdf(false);
     }
@@ -1218,16 +1227,15 @@ export default function Logistica() {
   const panel = 'bg-card/90 border-border';
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <PageShell.Root>
 
-      {/* HEADER */}
-      <header className="w-full bg-card/95 backdrop-blur-md border-border border-b pl-14 pr-4 py-2 flex items-center gap-3 z-50">
+      <PageShell.Header className="pl-14 pr-4 py-2 flex items-center gap-3">
         <button type="button" onClick={() => navigate('/dashboard')} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4" />
           <span className="text-[9px] font-black uppercase tracking-widest">Dashboard</span>
         </button>
         <span className="text-muted-foreground/70">|</span>
-        <Truck className="w-4 h-4 text-purple-400" />
+        <Truck className="w-4 h-4 text-primary" />
         <span className="text-[11px] font-black uppercase tracking-wider">Logística</span>
         <div className="ml-auto flex items-center gap-2">
           <div className="relative" ref={pdfMenuRef}>
@@ -1240,7 +1248,7 @@ export default function Logistica() {
               <ChevronDown className={`w-3 h-3 transition-transform ${pdfMenuOpen ? 'rotate-180' : ''}`} />
             </button>
             {pdfMenuOpen && (
-              <div className="absolute right-0 top-full z-[70] mt-1 min-w-[240px] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg py-1">
+              <div className="absolute right-0 top-full z-page-dropdown mt-1 min-w-[240px] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg py-1">
                 {[
                   { k: 1 as const, label: 'Informe completo logística' },
                   { k: 2 as const, label: 'Viajes del día' },
@@ -1257,18 +1265,18 @@ export default function Logistica() {
             )}
           </div>
         </div>
-      </header>
+      </PageShell.Header>
 
-      <main className="flex-1 px-4 py-5 max-w-4xl mx-auto w-full">
+      <PageShell.Main maxWidth="wide" className="px-4 py-5">
 
         {/* KPIs */}
         <div className="grid grid-cols-3 gap-3 mb-3 sm:grid-cols-5">
           {[
-            { label: 'Camiones',    value: kpis.totalCamiones,    color: '#a78bfa' },
+            { label: 'Camiones',    value: kpis.totalCamiones,    color: '#6d9b7d' },
             { label: 'Activos',     value: kpis.camionesActivos,  color: '#34d399' },
-            { label: 'Vehículos',   value: kpis.totalVehiculos,   color: '#a78bfa' },
-            { label: 'Conductores', value: kpis.totalConductores, color: '#a78bfa' },
-            { label: 'Viajes',      value: kpis.totalViajes,      color: '#60a5fa' },
+            { label: 'Vehículos',   value: kpis.totalVehiculos,   color: '#528163' },
+            { label: 'Conductores', value: kpis.totalConductores, color: '#5a8f6a' },
+            { label: 'Viajes',      value: kpis.totalViajes,      color: '#3f6a4f' },
           ].map(kpi => (
             <div key={kpi.label} className={`${panel} border rounded-xl p-3 text-center`}>
               <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{kpi.label}</p>
@@ -1280,8 +1288,8 @@ export default function Logistica() {
         {/* KPIs secundarios */}
         <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
           {[
-            { icon: <Gauge className="w-4 h-4 text-purple-400" />, label: 'Km totales', value: totalKm.toLocaleString('es-ES') + ' km', color: 'text-purple-300' },
-            { icon: <Fuel className="w-4 h-4 text-sky-400" />,    label: 'Combustible', value: totalLitros.toFixed(1) + ' L', color: 'text-sky-300' },
+            { icon: <Gauge className="w-4 h-4 text-primary" />, label: 'Km totales', value: totalKm.toLocaleString('es-ES') + ' km', color: 'text-primary/90' },
+            { icon: <Fuel className="w-4 h-4 text-primary" />,    label: 'Combustible', value: totalLitros.toFixed(1) + ' L', color: 'text-primary/90' },
             { icon: <Fuel className="w-4 h-4 text-amber-400" />,   label: 'Gasto comb.', value: totalCostComb.toFixed(2) + ' €', color: 'text-amber-300' },
             { icon: <Wrench className="w-4 h-4 text-amber-400" />, label: 'Coste mant.', value: totalCostMant.toFixed(2) + ' €', color: 'text-amber-300' },
           ].map(kpi => (
@@ -1306,8 +1314,8 @@ export default function Logistica() {
                 return (
                   <div key={item.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/40 border border-border">
                     {item.tipo === 'Camión'
-                      ? <Truck className="w-4 h-4 text-purple-400 shrink-0" />
-                      : <Car   className="w-4 h-4 text-sky-400 shrink-0" />}
+                      ? <Truck className="w-4 h-4 text-primary shrink-0" />
+                      : <Car   className="w-4 h-4 text-primary shrink-0" />}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {item.codigo && <span className="text-[8px] text-muted-foreground">{item.codigo}</span>}
@@ -1349,7 +1357,7 @@ export default function Logistica() {
             ['combustible',   'Combustible',  <Fuel   key="f" className="w-3 h-3 inline mr-1" />],
           ] as [TabType, string, React.ReactNode][]).map(([t, label, icon]) => (
             <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 min-w-fit py-2 px-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors whitespace-nowrap ${tab === t ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20' : 'text-muted-foreground hover:text-foreground'}`}>
+              className={`flex-1 min-w-fit py-2 px-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors whitespace-nowrap ${tab === t ? 'bg-primary/10 text-primary border border-primary/20' : 'text-muted-foreground hover:text-foreground'}`}>
               {icon}{label}
             </button>
           ))}
@@ -1361,7 +1369,7 @@ export default function Logistica() {
             <div className="flex justify-between items-center mb-4">
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{camiones.length} camión{camiones.length !== 1 ? 'es' : ''}</p>
               <button onClick={() => setModalAddCamion(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-colors">
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary/20 transition-colors">
                 <Plus className="w-3 h-3" />Nuevo camión
               </button>
             </div>
@@ -1378,7 +1386,7 @@ export default function Logistica() {
                   return (
                     <div key={c.id} className={`${panel} border rounded-xl p-4`}>
                       <div className="flex items-start gap-3">
-                        <Truck className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                        <Truck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             {c.codigo_interno && <span className="text-[8px] text-muted-foreground">{c.codigo_interno}</span>}
@@ -1415,7 +1423,7 @@ export default function Logistica() {
             <div className="flex justify-between items-center mb-4">
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{vehiculos.length} vehículo{vehiculos.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setModalAddVehiculo(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-colors">
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary/20 transition-colors">
                 <Plus className="w-3 h-3" />Nuevo vehículo
               </button>
             </div>
@@ -1432,7 +1440,7 @@ export default function Logistica() {
                   return (
                     <div key={v.id} className={`${panel} border rounded-xl p-4`}>
                       <div className="flex items-start gap-3">
-                        <Car className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                        <Car className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             {v.codigo_interno && <span className="text-[8px] text-muted-foreground">{v.codigo_interno}</span>}
@@ -1518,7 +1526,7 @@ export default function Logistica() {
             <div className="flex justify-between items-center mb-4">
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{viajes.length} viaje{viajes.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setModalAddViaje(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-colors">
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary/20 transition-colors">
                 <Plus className="w-3 h-3" />Nuevo viaje
               </button>
             </div>
@@ -1535,7 +1543,7 @@ export default function Logistica() {
                   return (
                     <div key={v.id} className={`${panel} border rounded-xl p-4`}>
                       <div className="flex items-start gap-3">
-                        <MapPin className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                        <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="text-[10px] font-black text-foreground">{v.trabajo_realizado ?? v.ruta ?? 'Viaje sin descripción'}</span>
@@ -1548,7 +1556,7 @@ export default function Logistica() {
                             {v.destino && <span className="text-[9px] text-muted-foreground">→ {v.destino}</span>}
                             {v.km_recorridos != null && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><Gauge className="w-2.5 h-2.5" />{v.km_recorridos} km</span>}
                             {v.gasto_gasolina_litros != null && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><Fuel className="w-2.5 h-2.5" />{v.gasto_gasolina_litros}L</span>}
-                            {v.gasto_gasolina_euros  != null && <span className="text-[9px] text-purple-300 font-black">{v.gasto_gasolina_euros}€</span>}
+                            {v.gasto_gasolina_euros  != null && <span className="text-[9px] text-primary/90 font-black">{v.gasto_gasolina_euros}€</span>}
                           </div>
                         </div>
                         <RecordActions
@@ -1571,7 +1579,7 @@ export default function Logistica() {
             <div className="flex justify-between items-center mb-4">
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{mants.length} registro{mants.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setModalAddMant(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-colors">
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary/20 transition-colors">
                 <Plus className="w-3 h-3" />Nuevo mantenimiento
               </button>
             </div>
@@ -1595,7 +1603,7 @@ export default function Logistica() {
                           <span className="text-[9px] text-muted-foreground">{getVehiculoLabel(m, { camiones, vehiculos })}</span>
                           {m.descripcion && <span className="text-[9px] text-muted-foreground">{m.descripcion}</span>}
                           {m.proveedor   && <span className="text-[9px] text-muted-foreground">· {m.proveedor}</span>}
-                          {m.coste_euros != null && <span className="text-[9px] text-purple-300 font-black">{m.coste_euros.toFixed(2)}€</span>}
+                          {m.coste_euros != null && <span className="text-[9px] text-primary/90 font-black">{m.coste_euros.toFixed(2)}€</span>}
                         </div>
                       </div>
                       <RecordActions
@@ -1617,7 +1625,7 @@ export default function Logistica() {
             <div className="flex justify-between items-center mb-4">
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{combustibles.length} repostaje{combustibles.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setModalAddComb(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[9px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-colors">
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary/20 transition-colors">
                 <Plus className="w-3 h-3" />Nuevo repostaje
               </button>
             </div>
@@ -1634,7 +1642,7 @@ export default function Logistica() {
                   return (
                     <div key={c.id} className={`${panel} border rounded-xl p-4`}>
                       <div className="flex items-start gap-3">
-                        <Fuel className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                        <Fuel className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="text-[10px] font-black text-foreground">{c.gasolinera ?? 'Repostaje'}</span>
@@ -1644,7 +1652,7 @@ export default function Logistica() {
                             {vehiculoLabel !== '—' && <span className="text-[9px] text-muted-foreground">{vehiculoLabel}</span>}
                             {conductor && <span className="text-[9px] text-muted-foreground">{conductor.nombre}</span>}
                             {c.litros     != null && <span className="text-[9px] text-muted-foreground flex items-center gap-0.5"><Fuel className="w-2.5 h-2.5" />{c.litros}L</span>}
-                            {c.coste_total != null && <span className="text-[9px] text-purple-300 font-black">{c.coste_total.toFixed(2)}€</span>}
+                            {c.coste_total != null && <span className="text-[9px] text-primary/90 font-black">{c.coste_total.toFixed(2)}€</span>}
                           </div>
                         </div>
                         <RecordActions
@@ -1660,7 +1668,7 @@ export default function Logistica() {
             )}
           </>
         )}
-      </main>
+      </PageShell.Main>
 
       {/* MODALES */}
       {(modalAddCamion || editCamion) && (
@@ -1708,6 +1716,6 @@ export default function Logistica() {
           onClose={() => { setModalAddComb(false); setEditComb(null); }}
         />
       )}
-    </div>
+    </PageShell.Root>
   );
 }

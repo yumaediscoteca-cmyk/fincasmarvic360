@@ -99,7 +99,7 @@ export default function AudioInput({
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           rows={rows}
-          className="w-full rounded border border-slate-600 bg-slate-800 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-sky-400 resize-y pr-10"
+          className="w-full rounded border border-input bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/25 resize-y pr-10"
         />
 
         {SpeechAPI && (
@@ -134,7 +134,7 @@ export default function AudioInput({
       </div>
 
       {recording && (
-        <p className="text-xs text-sky-400">Escuchando… (pulsa el micrófono para detener)</p>
+        <p className="text-xs text-primary">Escuchando… (pulsa el micrófono para detener)</p>
       )}
       {dictadoError && !recording && (
         <p className="text-xs text-amber-400">{dictadoError}</p>

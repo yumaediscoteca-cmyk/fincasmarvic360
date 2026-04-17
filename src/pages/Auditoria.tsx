@@ -17,7 +17,7 @@ const MODULO_ICON: Record<string, React.ElementType> = {
 
 const MODULO_COLOR: Record<string, string> = {
   'Trabajos': 'text-amber-400',
-  'Inventario': 'text-sky-400',
+  'Inventario': 'text-primary',
   'Logística': 'text-purple-400',
   'Personal': 'text-pink-400',
 }
@@ -63,6 +63,7 @@ export default function Auditoria() {
       return d >= desde && d <= hasta
     })
 
+    try {
     await generarPDFCorporativoBase({
       titulo: 'Auditoría del Sistema',
       subtitulo: `Registro de actividad · ${desde} → ${hasta}`,
@@ -100,6 +101,15 @@ export default function Auditoria() {
         },
       ],
     })
+    toast({ title: 'PDF generado', description: 'Auditoría descargada.' })
+    } catch (e) {
+      console.error('PDF auditoría:', e)
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      })
+    }
   }
 
   const renderEntry = (entry: AuditEntry) => {

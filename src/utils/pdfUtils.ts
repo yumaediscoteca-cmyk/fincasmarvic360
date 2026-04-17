@@ -6,11 +6,8 @@
  *
  * Patrón de uso:
  *   const ctx = createPdfContext(doc)
- *   ctx.addPageHeader('MÓDULO', 'Subtítulo opcional')
- *   ctx.writeLine('Campo', 'valor')
- *   ctx.separator()
- *   await ctx.addPhoto(url)
- *   doc.save('archivo.pdf')
+ *   ...
+ *   downloadJsPdf(doc, 'archivo.pdf')
  */
 
 import jsPDF from 'jspdf'
@@ -456,6 +453,31 @@ export async function initPdf(
   return { doc, ctx }
 }
 
+/**
+ * Descarga un PDF generado con jsPDF. Usa Blob + ancla para mayor fiabilidad
+ * tras cadenas async largas (algunos navegadores bloquean doc.save() tardío).
+ */
+export function downloadJsPdf(doc: jsPDF, filename: string): void {
+  let name = (filename || 'documento').trim() || 'documento.pdf'
+  if (!name.toLowerCase().endsWith('.pdf')) name = `${name}.pdf`
+  name = name.replace(/[/\\?%*:|"<>]/g, '-')
+  try {
+    const blob = doc.output('blob')
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    a.rel = 'noopener'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch (err) {
+    console.error('[downloadJsPdf] blob falló, usando doc.save', err)
+    doc.save(name)
+  }
+}
+
 // ── PDF corporativo global (cabecera 45 mm + pie en todas las páginas) ───────
 
 export type CorporatePdfBlock = (ctx: PdfContext, doc: jsPDF) => void | Promise<void>
@@ -592,5 +614,5 @@ export async function generarPDFCorporativoBase(
   }
   ctx.setCorporateMode(null)
   applyCorporateFootersAllPages(doc, fecha)
-  doc.save(filename)
+  downloadJsPdf(doc, filename)
 }

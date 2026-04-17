@@ -261,8 +261,8 @@ export default function IntegracionERP() {
           <span className="text-[10px] font-black uppercase tracking-widest">Volver</span>
         </button>
         <div className="w-px h-4 bg-white/10" />
-        <Database className="w-4 h-4 text-indigo-400" />
-        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Integración ERP</span>
+        <Database className="w-4 h-4 text-primary" />
+        <span className="text-[10px] font-black uppercase tracking-widest text-primary">Integración ERP</span>
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 py-6 max-w-4xl w-full mx-auto space-y-6">
@@ -270,24 +270,24 @@ export default function IntegracionERP() {
         {/* Controles de Filtro Globales */}
         <div className="bg-slate-900/60 border border-white/10 rounded-xl p-5 shadow-lg">
           <div className="flex items-center gap-2 mb-4">
-            <Calendar className="w-4 h-4 text-indigo-400" />
+            <Calendar className="w-4 h-4 text-primary" />
             <h2 className="text-[11px] font-black uppercase tracking-widest text-white">Filtros de Extracción</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Desde</label>
               <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)}
-                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500/50 outline-none" />
+                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-primary/50 outline-none" />
             </div>
             <div>
               <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Hasta</label>
               <input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)}
-                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500/50 outline-none" />
+                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-primary/50 outline-none" />
             </div>
             <div>
               <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Finca (Opcional)</label>
               <select value={fincaFiltro} onChange={e => setFincaFiltro(e.target.value)}
-                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-indigo-500/50 outline-none">
+                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-primary/50 outline-none">
                 <option value="">Todas las fincas</option>
                 {FINCAS.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
@@ -299,10 +299,10 @@ export default function IntegracionERP() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           
           {/* Producción */}
-          <div className="bg-slate-900/60 border border-indigo-500/20 rounded-xl p-5 flex flex-col h-full shadow-lg">
+          <div className="bg-slate-900/60 border border-primary/20 rounded-xl p-5 flex flex-col h-full shadow-lg">
             <div className="flex-1">
-              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center mb-3 border border-indigo-500/20">
-                <Server className="w-5 h-5 text-indigo-400" />
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3 border border-primary/20">
+                <Server className="w-5 h-5 text-primary" />
               </div>
               <h3 className="text-[13px] font-black text-white uppercase tracking-wider mb-2">Producción y Destinos</h3>
               <p className="text-[10px] text-slate-400 mb-4">Exporta las cosechas del período vinculadas a sus tickets de pesaje, lote y destino final.</p>
@@ -311,7 +311,7 @@ export default function IntegracionERP() {
               <button onClick={() => exportarProduccion('csv')} disabled={loadingProd} className="flex items-center justify-center gap-1.5 py-2 rounded border border-white/10 bg-slate-800 hover:bg-slate-700 text-[9px] font-black uppercase tracking-widest text-white transition-colors disabled:opacity-50">
                 {loadingProd ? <Loader2 className="w-3 h-3 animate-spin"/> : <FileSpreadsheet className="w-3 h-3"/>} CSV
               </button>
-              <button onClick={() => exportarProduccion('json')} disabled={loadingProd} className="flex items-center justify-center gap-1.5 py-2 rounded border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-[9px] font-black uppercase tracking-widest text-indigo-400 transition-colors disabled:opacity-50">
+              <button onClick={() => exportarProduccion('json')} disabled={loadingProd} className="flex items-center justify-center gap-1.5 py-2 rounded border border-primary/40 bg-primary/10 hover:bg-primary/20 text-[9px] font-black uppercase tracking-widest text-primary transition-colors disabled:opacity-50">
                 {loadingProd ? <Loader2 className="w-3 h-3 animate-spin"/> : <FileJson className="w-3 h-3"/>} JSON
               </button>
             </div>
@@ -370,7 +370,7 @@ export default function IntegracionERP() {
           <div className="p-0">
             {loadingHistorial ? (
               <div className="p-8 flex justify-center">
-                <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+                <Loader2 className="w-6 h-6 text-primary animate-spin" />
               </div>
             ) : historial.length === 0 ? (
               <div className="p-8 text-center text-slate-500">
@@ -405,7 +405,7 @@ export default function IntegracionERP() {
                       <td className="px-4 py-3 text-[11px] font-bold text-white whitespace-nowrap">{h.tipo ?? '—'}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${
-                          formato === 'json' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30' : 'bg-slate-700 text-white border-slate-500'
+                          formato === 'json' ? 'bg-primary/10 text-primary border-primary/30' : 'bg-slate-700 text-white border-slate-500'
                         }`}>
                           {formato}
                         </span>

@@ -13,7 +13,7 @@ export default function GlobalThemeToggle() {
   const isDark = theme === 'dark';
 
   return (
-    <div className="pointer-events-none fixed z-[60] top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] flex justify-end">
+    <div className="pointer-events-none fixed z-chrome top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] flex justify-end">
       <button
         type="button"
         onClick={toggleTheme}

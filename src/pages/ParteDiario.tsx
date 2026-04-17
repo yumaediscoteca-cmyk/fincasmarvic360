@@ -28,9 +28,12 @@ import {
   applyCorporateFootersAllPages,
   PDF_BRAND,
   registerMontserratLetterheadFonts,
+  downloadJsPdf,
 } from '@/utils/pdfUtils'
 import { ejecutarCosechaDiaria } from '@/utils/liaCosechadora'
 import { ESTADOS_PARCELA } from '@/constants/estadosParcela'
+import { toast } from '@/hooks/use-toast'
+import { PageShell } from '@/components/layout/PageShell'
 import jsPDF from 'jspdf'
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
@@ -391,7 +394,7 @@ async function generarPDFCorporativo(
 
   function finalize(filename: string) {
     applyCorporateFootersAllPages(doc, new Date(fechaISO + 'T12:00:00'))
-    doc.save(filename)
+    downloadJsPdf(doc, filename)
   }
 
   drawHeader()
@@ -606,6 +609,14 @@ export default function ParteDiario() {
       }
 
       pdf.finalize(`Parte_Diario_${fecha}.pdf`)
+      toast({ title: 'PDF generado', description: 'Si no ves la descarga, revisa la carpeta de descargas o bloqueos del navegador.' })
+    } catch (e) {
+      console.error('PDF parte completo:', e)
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      })
     } finally {
       setGenPdf(false)
     }
@@ -653,6 +664,14 @@ export default function ParteDiario() {
       }
 
       pdf.finalize(`Incidencias_${fecha}.pdf`)
+      toast({ title: 'PDF generado', description: 'Incidencias descargadas.' })
+    } catch (e) {
+      console.error('PDF incidencias:', e)
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      })
     } finally {
       setGenPdf(false)
     }
@@ -688,6 +707,14 @@ export default function ParteDiario() {
         await pdf.addPhoto120(e.foto_url, 'Fotografía — residuos vegetales')
       }
       pdf.finalize(`Residuos_${fecha}.pdf`)
+      toast({ title: 'PDF generado', description: 'Residuos descargados.' })
+    } catch (e) {
+      console.error('PDF residuos:', e)
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      })
     } finally {
       setGenPdf(false)
     }
@@ -725,6 +752,14 @@ export default function ParteDiario() {
         }
       }
       pdf.finalize(`Parte_Personal_${fecha}.pdf`)
+      toast({ title: 'PDF generado', description: 'Parte personal descargado.' })
+    } catch (e) {
+      console.error('PDF parte personal:', e)
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      })
     } finally {
       setGenPdf(false)
     }
@@ -757,6 +792,14 @@ export default function ParteDiario() {
         )
       }
       pdf.finalize(`Planning_${manana}.pdf`)
+      toast({ title: 'PDF generado', description: 'Planning descargado.' })
+    } catch (e) {
+      console.error('PDF planning:', e)
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      })
     } finally {
       setGenPdf(false)
     }
@@ -776,10 +819,8 @@ export default function ParteDiario() {
   // ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-
-      {/* ── CABECERA ── */}
-      <header className="bg-card/95 backdrop-blur-md border-b border-border pl-14 pr-4 py-2.5 flex flex-col gap-2 max-md:items-stretch md:flex-row md:flex-wrap md:items-center md:gap-3">
+    <PageShell.Root>
+      <PageShell.Header className="pl-14 pr-4 py-2.5 flex flex-col gap-2 max-md:items-stretch md:flex-row md:flex-wrap md:items-center md:gap-3">
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
@@ -817,7 +858,7 @@ export default function ParteDiario() {
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${pdfMenuOpen ? 'rotate-180' : ''}`} />
           </button>
           {pdfMenuOpen && (
-            <div className="absolute right-0 top-full z-[70] mt-1 min-w-[280px] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg py-1">
+            <div className="absolute right-0 top-full z-page-dropdown mt-1 min-w-[280px] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg py-1">
               {[
                 { k: 1 as const, label: 'Parte completo del día' },
                 { k: 2 as const, label: 'Solo incidencias de la jornada' },
@@ -851,10 +892,9 @@ export default function ParteDiario() {
           </button>
         )
       }
-      </header>
+      </PageShell.Header>
 
-      {/* ── CONTENIDO PRINCIPAL ── */}
-      <main className="flex-1 overflow-y-auto px-4 py-4 space-y-3 max-w-3xl w-full mx-auto">
+      <PageShell.Main maxWidth="standard" className="px-4 py-4 space-y-3">
 
         {cargando && (
           <div className="flex items-center justify-center py-16">
@@ -902,7 +942,7 @@ export default function ParteDiario() {
           onDelete={(id) => eliminar('parte_residuos_vegetales', id)}
         />
 
-      </main>
+      </PageShell.Main>
 
       {/* ── BARRA INFERIOR ── */}
       <footer className="bg-card/95 backdrop-blur-md border-t border-border px-4 py-1.5 flex items-center gap-4">
@@ -966,6 +1006,6 @@ export default function ParteDiario() {
         </div>
       )}
 
-    </div>
+    </PageShell.Root>
   )
 }

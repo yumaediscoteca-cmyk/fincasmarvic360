@@ -20,7 +20,7 @@ import { horasTrabajoLabel } from '@/utils/horasTrabajo'
 const ESTADOS_PALOT = {
   en_campo: 'bg-green-500/20 text-green-400 border-green-500/30',
   en_transporte: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  en_almacen: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+  en_almacen: 'bg-primary/20 text-primary border-primary/30',
   expedido: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
 }
 
@@ -242,8 +242,14 @@ export default function Trazabilidad() {
           }
         ]
       })
+      toast({ title: 'PDF generado', description: 'Trazabilidad descargada.' })
     } catch (e) {
       console.error(e)
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      })
     } finally {
       setGenerandoPDF(false)
     }
@@ -254,11 +260,11 @@ export default function Trazabilidad() {
       case 'suelo': return <FlaskConical className="w-4 h-4 text-emerald-400" />
       case 'plantacion': return <Sprout className="w-4 h-4 text-green-400" />
       case 'trabajo': return <Wrench className="w-4 h-4 text-amber-400" />
-      case 'riego': return <Droplets className="w-4 h-4 text-blue-400" />
+      case 'riego': return <Droplets className="w-4 h-4 text-primary" />
       case 'sensor': return <Activity className="w-4 h-4 text-purple-400" />
       case 'cosecha': return <Wheat className="w-4 h-4 text-yellow-400" />
-      case 'palot': return <Package className="w-4 h-4 text-sky-400" />
-      case 'movimiento': return <Truck className="w-4 h-4 text-indigo-400" />
+      case 'palot': return <Package className="w-4 h-4 text-primary" />
+      case 'movimiento': return <Truck className="w-4 h-4 text-marvic-brand" />
       default: return <CalendarClock className="w-4 h-4 text-slate-400" />
     }
   }
@@ -449,7 +455,7 @@ export default function Trazabilidad() {
                 <div key={c.id} className="bg-slate-900 border border-white/10 rounded-xl p-5 relative overflow-hidden">
                   <Thermometer className="absolute top-4 right-4 w-12 h-12 text-slate-800" />
                   <h3 className="text-lg font-black text-white mb-1">{c.nombre}</h3>
-                  <p className="text-xs text-slate-400 mb-4">Objetivo: <span className="text-sky-400 font-bold">{c.temperatura_objetivo ?? '-'}°C</span></p>
+                  <p className="text-xs text-slate-400 mb-4">Objetivo: <span className="text-primary font-bold">{c.temperatura_objetivo ?? '-'}°C</span></p>
                   <div className="bg-slate-800 rounded-lg p-3">
                     <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Capacidad Máxima</p>
                     <p className="text-xl font-black text-white">{c.capacidad_palots ?? 'N/D'} <span className="text-xs text-slate-400 font-normal">palots</span></p>
@@ -462,7 +468,7 @@ export default function Trazabilidad() {
           {/* ── TAB: SCANNER ── */}
           <TabsContent value="scanner" className="flex-1 overflow-y-auto mt-4">
             <div className="max-w-md mx-auto space-y-6">
-              <div className="p-6 bg-slate-900/80 rounded-2xl border border-[#6d9b7d]/20 flex flex-col items-center justify-center text-center shadow-[0_0_30px_rgba(56,189,248,0.1)]">
+              <div className="p-6 bg-slate-900/80 rounded-2xl border border-[#6d9b7d]/20 flex flex-col items-center justify-center text-center shadow-[0_0_30px_rgba(109,155,125,0.12)]">
                 <div className="w-16 h-16 bg-[#6d9b7d]/20 rounded-full flex items-center justify-center mb-4">
                   <QrCode className="w-8 h-8 text-[#6d9b7d]" />
                 </div>
@@ -554,7 +560,7 @@ export default function Trazabilidad() {
                     <h3 className="text-lg font-black text-white uppercase tracking-wider">Trazabilidad del Sector</h3>
                     {renderMissing()}
                   </div>
-                  <button onClick={generarPDFTimeline} disabled={generandoPDF || !timelineData?.length} className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-[#6d9b7d] hover:bg-sky-400 text-slate-900 font-black rounded-lg text-xs uppercase tracking-widest transition-colors disabled:opacity-50 shadow-[0_0_15px_rgba(56,189,248,0.2)]">
+                  <button onClick={generarPDFTimeline} disabled={generandoPDF || !timelineData?.length} className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-[#6d9b7d] hover:bg-[#528163] text-slate-900 font-black rounded-lg text-xs uppercase tracking-widest transition-colors disabled:opacity-50 shadow-[0_0_15px_rgba(109,155,125,0.25)]">
                     {generandoPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                     Descargar PDF
                   </button>

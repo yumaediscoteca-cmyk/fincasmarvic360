@@ -9,6 +9,7 @@ import {
 import { supabase } from '@/integrations/supabase/client'
 import { PDFExportModal, type PDFExportParams } from '@/components/base'
 import { generarPDFCorporativoBase, pdfCorporateSection, pdfCorporateTable } from '@/utils/pdfUtils'
+import { toast } from '@/hooks/use-toast'
 
 // ── Tipos de alerta ───────────────────────────────────────────────────────────
 
@@ -157,7 +158,7 @@ function useAlertas() {
 const SEV_CONFIG: Record<Severidad, { bg: string; border: string; badge: string; icon: React.ElementType; label: string }> = {
   critica: { bg: 'bg-red-500/10',    border: 'border-red-500/30',    badge: 'bg-red-500/20 text-red-400',          icon: ShieldAlert,    label: 'CRÍTICA'  },
   urgente: { bg: 'bg-amber-500/10',  border: 'border-amber-500/30',  badge: 'bg-amber-500/20 text-amber-400',      icon: AlertTriangle,  label: 'URGENTE'  },
-  aviso:   { bg: 'bg-sky-500/10',    border: 'border-sky-500/30',    badge: 'bg-sky-500/20 text-sky-400',          icon: CalendarClock,  label: 'AVISO'    },
+  aviso:   { bg: 'bg-primary/10',    border: 'border-primary/30',    badge: 'bg-primary/20 text-primary',          icon: CalendarClock,  label: 'AVISO'    },
   ok:      { bg: 'bg-green-500/10',  border: 'border-green-500/30',  badge: 'bg-green-500/20 text-green-400',      icon: CheckCircle2,   label: 'OK'       },
 }
 
@@ -192,45 +193,55 @@ export default function EstadoGeneral() {
       return acc
     }, {} as Record<string, number>)
 
-    await generarPDFCorporativoBase({
-      titulo: 'Estado General del Sistema',
-      subtitulo: `Panel de alertas activas · ${new Date().toLocaleDateString('es-ES')}`,
-      fecha: new Date(),
-      filename: `estado_general_${new Date().toISOString().slice(0, 10)}.pdf`,
-      bloques: [
-        (ctx) => {
-          pdfCorporateSection(ctx, 'Resumen Ejecutivo')
-          ctx.kpiRow([
-            { label: 'Críticas', value: porSeveridad.critica ?? 0 },
-            { label: 'Urgentes', value: porSeveridad.urgente ?? 0 },
-            { label: 'Avisos', value: porSeveridad.aviso ?? 0 },
-            { label: 'Total', value: filtered.length },
-          ])
-          ctx.y += 2
-          ctx.writeLabel('Distribución por módulo')
-          Object.entries(porModulo).forEach(([mod, count]) => {
-            ctx.writeLine(`  ${mod}`, String(count))
-          })
-          ctx.y += 4
-        },
-        (ctx) => {
-          if (filtered.length === 0) return
-          pdfCorporateSection(ctx, 'Detalle de Alertas')
-          const rows = filtered.map(a => [
-            a.severidad.toUpperCase(),
-            a.modulo,
-            a.titulo,
-            a.detalle,
-          ])
-          pdfCorporateTable(
-            ctx,
-            ['Severidad', 'Módulo', 'Título', 'Detalle'],
-            [24, 28, 54, 76],
-            rows,
-          )
-        },
-      ],
-    })
+    try {
+      await generarPDFCorporativoBase({
+        titulo: 'Estado General del Sistema',
+        subtitulo: `Panel de alertas activas · ${new Date().toLocaleDateString('es-ES')}`,
+        fecha: new Date(),
+        filename: `estado_general_${new Date().toISOString().slice(0, 10)}.pdf`,
+        bloques: [
+          (ctx) => {
+            pdfCorporateSection(ctx, 'Resumen Ejecutivo')
+            ctx.kpiRow([
+              { label: 'Críticas', value: porSeveridad.critica ?? 0 },
+              { label: 'Urgentes', value: porSeveridad.urgente ?? 0 },
+              { label: 'Avisos', value: porSeveridad.aviso ?? 0 },
+              { label: 'Total', value: filtered.length },
+            ])
+            ctx.y += 2
+            ctx.writeLabel('Distribución por módulo')
+            Object.entries(porModulo).forEach(([mod, count]) => {
+              ctx.writeLine(`  ${mod}`, String(count))
+            })
+            ctx.y += 4
+          },
+          (ctx) => {
+            if (filtered.length === 0) return
+            pdfCorporateSection(ctx, 'Detalle de Alertas')
+            const rows = filtered.map(a => [
+              a.severidad.toUpperCase(),
+              a.modulo,
+              a.titulo,
+              a.detalle,
+            ])
+            pdfCorporateTable(
+              ctx,
+              ['Severidad', 'Módulo', 'Título', 'Detalle'],
+              [24, 28, 54, 76],
+              rows,
+            )
+          },
+        ],
+      })
+      toast({ title: 'PDF generado', description: 'Estado general descargado.' })
+    } catch (e) {
+      console.error('PDF estado general:', e)
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      })
+    }
   }
 
   return (
@@ -284,7 +295,7 @@ export default function EstadoGeneral() {
           {[
             { label: 'Críticas',  value: criticas, color: 'text-red-400',   bg: 'bg-red-500/10 border-red-500/20' },
             { label: 'Urgentes',  value: urgentes, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
-            { label: 'Avisos',    value: avisos,   color: 'text-sky-400',   bg: 'bg-sky-500/10 border-sky-500/20' },
+            { label: 'Avisos',    value: avisos,   color: 'text-primary',   bg: 'bg-primary/10 border-primary/20' },
           ].map(k => (
             <div key={k.label} className={`rounded-xl border p-3 text-center ${k.bg}`}>
               <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{k.label}</p>

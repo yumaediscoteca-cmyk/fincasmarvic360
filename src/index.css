@@ -177,9 +177,9 @@
            hover:bg-destructive/10 disabled:opacity-40 transition-colors;
   }
 
-  /** Cabeceras de página alineadas a tarjetas / paneles */
+  /** Cabeceras de página (z-page-header en tailwind.config) */
   .app-header-bar {
-    @apply sticky top-0 z-50 w-full border-b border-border bg-card/90 backdrop-blur-md
+    @apply sticky top-0 z-page-header w-full border-b border-border bg-card/90 backdrop-blur-md
            text-foreground pt-[max(0.25rem,env(safe-area-inset-top,0px))];
   }
 }

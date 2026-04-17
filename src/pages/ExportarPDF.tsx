@@ -8,10 +8,12 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables } from '@/integrations/supabase/types'
-import { initPdf, PDF_BRAND, pdfCorporateSection, pdfCorporateTable, PDF_MARGIN } from '@/utils/pdfUtils'
+import { initPdf, PDF_BRAND, pdfCorporateSection, pdfCorporateTable, PDF_MARGIN, downloadJsPdf } from '@/utils/pdfUtils'
 import { formatFechaLarga } from '@/utils/dateFormat'
 import { matchHarvestsToPlantings } from '@/utils/harvestPlantingMatch'
 import { FINCAS_NOMBRES as FINCAS } from '@/constants/farms'
+import { toast } from '@/hooks/use-toast'
+import { PageShell } from '@/components/layout/PageShell'
 import { LOGISTICA_MANTENIMIENTO_SELECT } from '@/utils/logisticaMantenimiento'
 
 // ── Módulos seleccionables ────────────────────────────────────────────────────
@@ -362,7 +364,7 @@ async function generarPDFGlobal(
   }
 
   ctx.footer()
-  doc.save(`Informe_Global_Marvic_${desde}_${hasta}.pdf`)
+  downloadJsPdf(doc, `Informe_Global_Marvic_${desde}_${hasta}.pdf`)
 }
 
 // ── Generadores Agronómicos ───────────────────────────────────────────────────
@@ -388,12 +390,12 @@ async function generarPDFAgronomico(tipo: string, desde: string, hasta: string, 
 
   if (parcelIds.length === 0) {
     ctx.writeLabel('No hay parcelas para la finca seleccionada.')
-    ctx.footer(); doc.save(`${titulo}_${desde}.pdf`); return
+    ctx.footer(); downloadJsPdf(doc, `${titulo}_${desde}.pdf`); return
   }
 
   if (tipo === 'suelo') {
     const { data: analisis } = await supabase.from('analisis_suelo').select('*').in('parcel_id', parcelIds).gte('fecha', desde).lte('fecha', hasta).order('fecha', { ascending: true })
-    if (!analisis?.length) { ctx.writeLabel('Sin registros de análisis de suelo en este período.'); ctx.footer(); doc.save(`Suelo.pdf`); return }
+    if (!analisis?.length) { ctx.writeLabel('Sin registros de análisis de suelo en este período.'); ctx.footer(); downloadJsPdf(doc, `Suelo.pdf`); return }
     
     pdfCorporateSection(ctx, 'Histórico de Análisis')
     pdfCorporateTable(ctx, 
@@ -452,7 +454,7 @@ async function generarPDFAgronomico(tipo: string, desde: string, hasta: string, 
     const { data: tickets } = await supabase.from('tickets_pesaje').select('harvest_id, destino').in('harvest_id', harvests.map(h => h.id))
     const ticketMap = new Map(tickets?.map(t => [t.harvest_id, t.destino]) || [])
     
-    if (!harvests.length) { ctx.writeLabel('Sin cosechas en este período.'); ctx.footer(); doc.save(`Produccion.pdf`); return }
+    if (!harvests.length) { ctx.writeLabel('Sin cosechas en este período.'); ctx.footer(); downloadJsPdf(doc, `Produccion.pdf`); return }
     const totalKg = harvests.reduce((acc, h) => acc + (h.production_kg || 0), 0)
     ctx.kpiRow([{ label: 'Total Cosechado', value: `${totalKg.toLocaleString()} Kg` }])
     ctx.separator()
@@ -471,7 +473,7 @@ async function generarPDFAgronomico(tipo: string, desde: string, hasta: string, 
   }
   else if (tipo === 'certificacion') {
     const { data: certs } = await supabase.from('certificaciones_parcela').select('*').in('parcel_id', parcelIds).order('fecha_fin', { ascending: true })
-    if (!certs?.length) { ctx.writeLabel('Sin certificaciones.'); ctx.footer(); doc.save(`Certificaciones.pdf`); return }
+    if (!certs?.length) { ctx.writeLabel('Sin certificaciones.'); ctx.footer(); downloadJsPdf(doc, `Certificaciones.pdf`); return }
     pdfCorporateTable(ctx,
       ['PARCELA', 'ENTIDAD', 'ESTADO', 'VENCIMIENTO'],
       [40, 50, 40, 40],
@@ -487,7 +489,7 @@ async function generarPDFAgronomico(tipo: string, desde: string, hasta: string, 
   }
   else if (tipo === 'residuos') {
     const { data: res } = await supabase.from('residuos_operacion').select('*').in('parcel_id', parcelIds).gte('created_at', `${desde}T00:00:00`).lte('created_at', `${hasta}T23:59:59`)
-    if (!res?.length) { ctx.writeLabel('Sin residuos.'); ctx.footer(); doc.save(`Residuos.pdf`); return }
+    if (!res?.length) { ctx.writeLabel('Sin residuos.'); ctx.footer(); downloadJsPdf(doc, `Residuos.pdf`); return }
     pdfCorporateTable(ctx, ['PARCELA', 'TIPO', 'INSTALADO', 'RETIRADO', 'PENDIENTE'], [35, 45, 30, 30, 30],
       res.map(r => [
         parcelMap.get(r.parcel_id)?.parcel_number || r.parcel_id, r.tipo_residuo.replace(/_/g, ' '),
@@ -548,7 +550,7 @@ async function generarPDFAgronomico(tipo: string, desde: string, hasta: string, 
   }
 
   ctx.footer()
-  doc.save(`Informe_${titulo.replace(/ /g, '_')}_${desde}.pdf`)
+  downloadJsPdf(doc, `Informe_${titulo.replace(/ /g, '_')}_${desde}.pdf`)
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
@@ -615,19 +617,23 @@ export default function ExportarPDF() {
       } else {
         await generarPDFAgronomico(tipoAgro, desde, hasta, fincaAgro)
       }
+      toast({ title: 'PDF generado', description: 'Revisa la carpeta de descargas.' })
     } catch (e) {
       setError('Error al generar el PDF. Inténtalo de nuevo.')
       console.error(e)
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      })
     } finally {
       setGenerando(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-
-      {/* CABECERA */}
-      <header className="bg-card/95 backdrop-blur-md border-b border-border pl-14 pr-4 py-2.5 flex items-center gap-3">
+    <PageShell.Root>
+      <PageShell.Header className="pl-14 pr-4 py-2.5 flex items-center gap-3">
         <button
           type="button"
           onClick={() => navigate('/dashboard')}
@@ -639,9 +645,9 @@ export default function ExportarPDF() {
         <div className="w-px h-4 bg-border" aria-hidden />
         <FileText className="w-4 h-4 text-[#6d9b7d]" />
         <span className="text-[10px] font-black uppercase tracking-widest text-[#6d9b7d]">Exportar PDF Global</span>
-      </header>
+      </PageShell.Header>
 
-      <main className="flex-1 overflow-y-auto px-4 py-5 max-w-2xl w-full mx-auto space-y-5">
+      <PageShell.Main maxWidth="narrow" className="px-4 py-5 space-y-5">
 
         {/* Pestañas UI */}
         <div className="flex bg-muted/60 p-1 rounded-xl border border-border">
@@ -754,13 +760,13 @@ export default function ExportarPDF() {
           }
         </button>
 
-      </main>
+      </PageShell.Main>
 
       <footer className="bg-card/95 backdrop-blur-md border-t border-border px-4 py-1.5">
         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
           Marvic 360 · Exportar PDF · {tab === 'global' ? `${modulos.size} módulo(s)` : 'Reporte Agronómico'}
         </span>
       </footer>
-    </div>
+    </PageShell.Root>
   )
 }

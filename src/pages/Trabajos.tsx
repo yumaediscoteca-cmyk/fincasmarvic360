@@ -40,6 +40,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { FormError } from '@/components/base/FormError';
+import { toast } from '@/hooks/use-toast';
+import { PageShell } from '@/components/layout/PageShell';
 
 // ── Constantes ───────────────────────────────────────────────
 
@@ -53,7 +55,7 @@ const PRIORIDAD_STYLES: Record<Prioridad, { border: string; text: string; label:
 
 const ESTADO_PLAN_STYLES: Record<EstadoPlanificacion, { border: string; text: string }> = {
   borrador:   { border: 'border-slate-500',  text: 'text-slate-400' },
-  confirmado: { border: 'border-blue-500',   text: 'text-blue-400' },
+  confirmado: { border: 'border-primary',   text: 'text-primary' },
   ejecutado:  { border: 'border-green-500',  text: 'text-green-400' },
   pendiente:  { border: 'border-red-500',    text: 'text-red-400' },
   cancelado:  { border: 'border-slate-600',  text: 'text-slate-500' },
@@ -157,7 +159,7 @@ const PanelDia = React.memo(function PanelDia({ fecha, onPrev, onNext, onCerrar 
       {/* Contadores */}
       <div className="grid grid-cols-4 gap-2 mb-3">
         {[
-          { label: 'Confirmados', value: confirmados, color: 'text-blue-400' },
+          { label: 'Confirmados', value: confirmados, color: 'text-primary' },
           { label: 'Ejecutados',  value: ejecutados,  color: 'text-green-400' },
           { label: 'Pendientes',  value: pendientes,  color: pendientes > 0 ? 'text-red-400' : 'text-slate-400' },
           { label: 'Arrastrados', value: arrastrados, color: arrastrados > 0 ? 'text-red-400' : 'text-slate-400' },
@@ -782,7 +784,7 @@ const ModalCampana = React.memo(function ModalCampana({ editData, onClose }: { e
 const TarjetaCampana = React.memo(function TarjetaCampana({ c, onEdit }: { c: PlanificacionCampana; onEdit: (c: PlanificacionCampana) => void }) {
   const deleteMut = useDeletePlanificacionCampana();
   const ESTADO_COLOR: Record<string, string> = {
-    planificado: 'text-blue-400 border-blue-500',
+    planificado: 'text-primary border-primary',
     en_curso:    'text-amber-400 border-amber-500',
     completado:  'text-green-400 border-green-500',
     cancelado:   'text-slate-500 border-slate-600',
@@ -1173,10 +1175,9 @@ export default function Trabajos() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <PageShell.Root>
 
-      {/* HEADER */}
-      <header className="w-full bg-card/95 backdrop-blur-md border-b border-border pl-14 pr-4 py-2 flex flex-col gap-2 max-md:items-stretch md:flex-row md:items-center md:gap-3 z-50 text-foreground">
+      <PageShell.Header className="pl-14 pr-4 py-2 flex flex-col gap-2 max-md:items-stretch md:flex-row md:items-center md:gap-3 text-foreground">
         <div className="flex items-center gap-3 min-w-0">
         <button onClick={() => navigate('/dashboard')} className="flex items-center gap-1.5 text-slate-400 hover:text-[#6d9b7d] transition-colors shrink-0">
           <ArrowLeft className="w-4 h-4" />
@@ -1206,17 +1207,32 @@ export default function Trabajos() {
               PDF {pdfMenuOpen ? '▲' : '▼'}
             </button>
             {pdfMenuOpen && (
-              <div className="absolute right-0 top-full z-[70] mt-1 min-w-[200px] rounded-lg border border-border bg-card text-foreground shadow-lg py-1">
-                <button type="button" disabled={generandoPdf} onClick={async () => { setPdfMenuOpen(false); setGenerandoPdf(true); try { await generarPDF(); } finally { setGenerandoPdf(false); } }}
+              <div className="absolute right-0 top-full z-page-dropdown mt-1 min-w-[200px] rounded-lg border border-border bg-card text-foreground shadow-lg py-1">
+                <button type="button" disabled={generandoPdf} onClick={async () => {
+                  setPdfMenuOpen(false); setGenerandoPdf(true);
+                  try {
+                    await generarPDF();
+                    toast({ title: 'PDF generado', description: 'Planificación descargada.' });
+                  } catch (e) {
+                    console.error('PDF trabajos:', e);
+                    toast({
+                      title: 'Error al generar el PDF',
+                      description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+                      variant: 'destructive',
+                    });
+                  } finally {
+                    setGenerandoPdf(false);
+                  }
+                }}
                   className="w-full px-3 py-2.5 text-left text-xs font-medium transition-colors disabled:opacity-50 hover:bg-muted"
                 >Informe completo</button>
               </div>
             )}
           </div>
         </div>
-      </header>
+      </PageShell.Header>
 
-      <main className="flex-1 px-4 py-5 max-w-4xl mx-auto w-full">
+      <PageShell.Main maxWidth="wide" className="px-4 py-5">
 
         {/* KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
@@ -1362,7 +1378,7 @@ export default function Trabajos() {
             )}
           </>
         )}
-      </main>
+      </PageShell.Main>
 
       {/* MODALES */}
       {modalTrabajo && (
@@ -1397,6 +1413,6 @@ export default function Trabajos() {
           onClose={handleCloseCierreTrabajo}
         />
       )}
-    </div>
+    </PageShell.Root>
   );
 }

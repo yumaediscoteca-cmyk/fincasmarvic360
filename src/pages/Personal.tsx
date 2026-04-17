@@ -8,6 +8,7 @@ import {
   PDF_MARGIN,
   PDF_TEXT_W,
 } from '../utils/pdfUtils';
+import { toast } from '@/hooks/use-toast';
 import {
   ArrowLeft, FileText, Plus, Users, Phone, CreditCard,
   Download, Building2, ChevronDown, ChevronUp, CheckCircle2, XCircle,
@@ -822,52 +823,62 @@ export default function Personal() {
   async function generarPDF() {
     const CATS: CategoriaPersonal[] = ['operario_campo', 'encargado', 'conductor_maquinaria', 'conductor_camion'];
     const fs = new Date().toISOString().slice(0, 10);
-    await generarPDFCorporativoBase({
-      titulo: 'LISTADO DE PERSONAL',
-      subtitulo: 'Agrícola Marvic · explotación',
-      fecha: new Date(),
-      filename: `Personal_MARVIC_${fs}.pdf`,
-      bloques: [(ctx) => {
-        const doc = ctx.doc;
-        for (const cat of CATS) {
-          const lista = todoPersonal.filter(p => p.categoria === cat);
-          if (lista.length === 0) continue;
-          pdfCorporateSection(ctx, CATEGORIA_LABELS[cat]);
-          for (const p of lista) {
-            const line =
-              `${p.activo ? 'ACTIVO' : 'BAJA'}  ${p.nombre}${p.codigo_interno ? `  [${p.codigo_interno}]` : ''}${p.dni ? `  DNI: ${p.dni}` : ''}${p.telefono ? `  Tel: ${p.telefono}` : ''}`;
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(...PDF_BRAND.green);
-            const lines = doc.splitTextToSize(line, PDF_TEXT_W) as string[];
-            for (const ln of lines) {
-              ctx.checkPage(5);
-              doc.text(ln, PDF_MARGIN, ctx.y);
-              ctx.y += 4.2;
+    try {
+      await generarPDFCorporativoBase({
+        titulo: 'LISTADO DE PERSONAL',
+        subtitulo: 'Agrícola Marvic · explotación',
+        fecha: new Date(),
+        filename: `Personal_MARVIC_${fs}.pdf`,
+        bloques: [(ctx) => {
+          const doc = ctx.doc;
+          for (const cat of CATS) {
+            const lista = todoPersonal.filter(p => p.categoria === cat);
+            if (lista.length === 0) continue;
+            pdfCorporateSection(ctx, CATEGORIA_LABELS[cat]);
+            for (const p of lista) {
+              const line =
+                `${p.activo ? 'ACTIVO' : 'BAJA'}  ${p.nombre}${p.codigo_interno ? `  [${p.codigo_interno}]` : ''}${p.dni ? `  DNI: ${p.dni}` : ''}${p.telefono ? `  Tel: ${p.telefono}` : ''}`;
+              doc.setFontSize(8);
+              doc.setFont('helvetica', 'normal');
+              doc.setTextColor(...PDF_BRAND.green);
+              const lines = doc.splitTextToSize(line, PDF_TEXT_W) as string[];
+              for (const ln of lines) {
+                ctx.checkPage(5);
+                doc.text(ln, PDF_MARGIN, ctx.y);
+                ctx.y += 4.2;
+              }
+              ctx.y += 1.5;
             }
-            ctx.y += 1.5;
+            ctx.y += 2;
           }
-          ctx.y += 2;
-        }
-        if (externos.length > 0) {
-          pdfCorporateSection(ctx, 'Mano de obra externa');
-          for (const e of externos) {
-            const line =
-              `${e.activo ? 'ACTIVO' : 'BAJA'}  ${e.nombre_empresa}${e.codigo_interno ? `  [${e.codigo_interno}]` : ''}  ${TIPO_EXTERNO_LABELS[e.tipo]}${e.nif ? `  NIF: ${e.nif}` : ''}${e.telefono_contacto ? `  Tel: ${e.telefono_contacto}` : ''}`;
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(...PDF_BRAND.green);
-            const lines = doc.splitTextToSize(line, PDF_TEXT_W) as string[];
-            for (const ln of lines) {
-              ctx.checkPage(5);
-              doc.text(ln, PDF_MARGIN, ctx.y);
-              ctx.y += 4.2;
+          if (externos.length > 0) {
+            pdfCorporateSection(ctx, 'Mano de obra externa');
+            for (const e of externos) {
+              const line =
+                `${e.activo ? 'ACTIVO' : 'BAJA'}  ${e.nombre_empresa}${e.codigo_interno ? `  [${e.codigo_interno}]` : ''}  ${TIPO_EXTERNO_LABELS[e.tipo]}${e.nif ? `  NIF: ${e.nif}` : ''}${e.telefono_contacto ? `  Tel: ${e.telefono_contacto}` : ''}`;
+              doc.setFontSize(8);
+              doc.setFont('helvetica', 'normal');
+              doc.setTextColor(...PDF_BRAND.green);
+              const lines = doc.splitTextToSize(line, PDF_TEXT_W) as string[];
+              for (const ln of lines) {
+                ctx.checkPage(5);
+                doc.text(ln, PDF_MARGIN, ctx.y);
+                ctx.y += 4.2;
+              }
+              ctx.y += 1.5;
             }
-            ctx.y += 1.5;
           }
-        }
-      }],
-    });
+        }],
+      });
+      toast({ title: 'PDF generado', description: 'Listado de personal descargado.' });
+    } catch (e) {
+      console.error('PDF personal:', e);
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      });
+    }
   }
 
   return (

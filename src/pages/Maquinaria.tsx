@@ -34,6 +34,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useRecorridoDia, useAddPosicion } from '../hooks/useGPS';
 import { toast } from '../hooks/use-toast';
+import { PageShell } from '@/components/layout/PageShell';
 
 // ── Constantes ────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ const ESTADOS_APERO     = ['disponible', 'asignado', 'en_reparacion', 'baja'] as
 
 const ESTADO_OP_BADGE: Record<string, string> = {
   disponible:    'border-green-500  text-green-400',
-  en_uso:        'border-blue-500   text-blue-400',
+  en_uso:        'border-primary   text-primary',
   mantenimiento: 'border-amber-500  text-amber-400',
   baja:          'border-red-500    text-red-400',
 };
@@ -1469,6 +1470,14 @@ export default function Maquinaria() {
       else if (op === 3) await generarAperosPDF();
       else if (op === 4) await generarUsoMaquinaria();
       else await generarMantenimientosMaquinaria();
+      toast({ title: 'PDF generado', description: 'Revisa la carpeta de descargas.' });
+    } catch (e) {
+      console.error('PDF maquinaria:', e);
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      });
     } finally {
       setGenerandoPdf(false);
     }
@@ -1545,10 +1554,9 @@ export default function Maquinaria() {
   // ── Render ──────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
+    <PageShell.Root>
 
-      {/* HEADER */}
-      <header className="w-full bg-card/95 backdrop-blur-md border-b border-border pl-14 pr-4 py-2 flex items-center gap-3 z-50">
+      <PageShell.Header className="pl-14 pr-4 py-2 flex items-center gap-3">
         <button type="button" onClick={() => navigate('/dashboard')} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4" />
           <span className="text-[9px] font-black uppercase tracking-widest">Dashboard</span>
@@ -1577,7 +1585,7 @@ export default function Maquinaria() {
               PDF {pdfMenuOpen ? '▲' : '▼'}
             </button>
             {pdfMenuOpen && (
-              <div className="absolute right-0 top-full z-[70] mt-1 min-w-[240px] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg py-1">
+              <div className="absolute right-0 top-full z-page-dropdown mt-1 min-w-[240px] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg py-1">
                 {([
                   { k: 1, label: 'Informe completo maquinaria' },
                   { k: 2, label: 'Estado de tractores' },
@@ -1597,9 +1605,9 @@ export default function Maquinaria() {
             )}
           </div>
         </div>
-      </header>
+      </PageShell.Header>
 
-      <main className="flex-1 px-4 py-5 max-w-4xl mx-auto w-full">
+      <PageShell.Main maxWidth="wide" className="px-4 py-5">
 
         {/* KPIs */}
         <div className="grid grid-cols-4 gap-3 mb-6">
@@ -1607,7 +1615,7 @@ export default function Maquinaria() {
             { label: 'Tractores',  value: kpis?.tractoresActivos ?? 0, color: '#fb923c' },
             { label: 'Aperos',     value: kpis?.aperosActivos ?? 0,    color: '#fb923c' },
             { label: 'H. totales', value: kpis?.totalHoras ?? '0',     color: '#34d399' },
-            { label: 'Gasoil (L)', value: kpis?.totalGasolina ?? '0',  color: '#60a5fa' },
+            { label: 'Gasoil (L)', value: kpis?.totalGasolina ?? '0',  color: '#528163' },
           ].map(kpi => (
             <div key={kpi.label} className="bg-card/90 border border-border rounded-xl p-3 text-center shadow-sm">
               <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{kpi.label}</p>
@@ -1962,7 +1970,7 @@ export default function Maquinaria() {
             )}
           </div>
         )}
-      </main>
+      </PageShell.Main>
 
       {modalTractor && (
         <ModalTractor
@@ -1986,6 +1994,6 @@ export default function Maquinaria() {
           onClose={() => setModalUso(false)}
         />
       )}
-    </div>
+    </PageShell.Root>
   );
 }

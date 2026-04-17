@@ -226,10 +226,10 @@ export default function ModalCierreTrabajo({ trabajo, onClose }: Props) {
 
           {/* Seccion plantacion */}
           {esPlantacion && trabajo.parcel_id && (
-            <div className="space-y-3 p-3 rounded-lg border border-sky-500/20 bg-sky-500/5">
+            <div className="space-y-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
               <div className="flex items-center gap-2">
-                <Leaf className="w-3.5 h-3.5 text-sky-400" />
-                <p className="text-[10px] font-black text-sky-400 uppercase tracking-widest">Datos de plantacion</p>
+                <Leaf className="w-3.5 h-3.5 text-primary" />
+                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Datos de plantacion</p>
               </div>
               <div>
                 <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Cultivo *</label>

@@ -108,7 +108,7 @@ export default function GlobalSidebar() {
       {/* Botón hamburguesa */}
       <button
         onClick={toggle}
-        className="fixed z-[60] flex items-center justify-center w-10 h-10 rounded-lg
+        className="fixed z-chrome flex items-center justify-center w-10 h-10 rounded-lg
           top-[max(0.75rem,env(safe-area-inset-top))] left-[max(0.75rem,env(safe-area-inset-left))]
           backdrop-blur-sm border border-border bg-card/95 text-foreground hover:bg-muted transition-colors duration-200"
         aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}
@@ -119,7 +119,7 @@ export default function GlobalSidebar() {
 
       {pendingQueueCount > 0 && (
         <span
-          className={`fixed z-[60] pointer-events-none text-[10px] font-bold tabular-nums leading-none px-1.5 py-0.5 rounded
+          className={`fixed z-chrome pointer-events-none text-[10px] font-bold tabular-nums leading-none px-1.5 py-0.5 rounded
             top-[max(0.75rem,env(safe-area-inset-top))] left-[max(3.25rem,calc(0.75rem+2.5rem+0.25rem+env(safe-area-inset-left)))]
             ${queueErrorCount > 0
               ? isDark
@@ -139,7 +139,7 @@ export default function GlobalSidebar() {
       {/* Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-[70] transition-opacity duration-200"
+          className="fixed inset-0 bg-black/60 z-sidebar-backdrop transition-opacity duration-200"
           onClick={close}
           aria-hidden="true"
         />
@@ -147,7 +147,7 @@ export default function GlobalSidebar() {
 
       {/* Panel lateral */}
       <div
-        className={`fixed top-0 left-0 h-full w-72 z-[80] flex flex-col
+        className={`fixed top-0 left-0 h-full w-72 z-sidebar flex flex-col
           pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
           transition-transform duration-300 ease-in-out
           bg-sidebar text-sidebar-foreground border-r border-sidebar-border

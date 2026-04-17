@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
 import { generarPDFCorporativoBase } from '@/utils/pdfUtils'
+import { toast } from '@/hooks/use-toast'
 import type { ParcelFeature, ParcelStatus } from '@/types/farm'
 import { STATUS_COLORS, STATUS_LABELS } from '@/types/farm'
 
@@ -402,9 +403,12 @@ export default function FarmMap() {
         ]
       })
       setShowInformeFinca(false)
+      toast({ title: 'PDF generado', description: 'Informe de finca descargado.' })
 
     } catch (err: unknown) {
-      setInformeError(err instanceof Error ? err.message : 'Error generando el PDF')
+      const msg = err instanceof Error ? err.message : 'Error generando el PDF'
+      setInformeError(msg)
+      toast({ title: 'Error al generar el PDF', description: msg, variant: 'destructive' })
     } finally {
       setGenerandoInforme(false)
     }

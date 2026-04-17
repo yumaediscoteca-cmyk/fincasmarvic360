@@ -162,7 +162,7 @@ export default function UploadParcelPhoto({ parcelId, onClose }: Props) {
 
         {/* GEOLOCALIZACIÓN */}
         <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-900/50 border border-slate-700/50">
-          <MapPin className="w-4 h-4 text-sky-400 shrink-0" />
+          <MapPin className="w-4 h-4 text-primary shrink-0" />
           <div className="text-xs">
             {coordsLoading && (
               <p className="text-slate-400">Obteniendo ubicación...</p>

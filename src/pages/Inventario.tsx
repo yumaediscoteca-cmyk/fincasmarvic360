@@ -18,6 +18,7 @@ import {
 } from '../hooks/useInventario';
 import { usePersonal } from '../hooks/usePersonal';
 import { SelectWithOther, AudioInput, PhotoAttachment, RecordActions } from '../components/base';
+import { toast } from '@/hooks/use-toast';
 import { useCatalogoLocal } from '../hooks/useCatalogoLocal';
 import { uploadImage, buildStoragePath } from '../utils/uploadImage';
 import type { Tables } from '../integrations/supabase/types';
@@ -375,6 +376,14 @@ export default function Inventario() {
         }],
       });
       setShowModal(false);
+      toast({ title: 'PDF generado', description: 'Informe de inventario descargado.' });
+    } catch (e) {
+      console.error('PDF inventario global:', e);
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      });
     } finally {
       setGenPdf(false);
     }
@@ -487,8 +496,8 @@ export default function Inventario() {
                 className="w-full max-w-[480px] opacity-90 relative z-10"
                 style={{
                   filter: isDark
-                    ? 'brightness(0) invert(1) drop-shadow(0 0 30px rgba(56,189,248,0.3))'
-                    : 'drop-shadow(0 0 20px rgba(56,189,248,0.2))',
+                    ? 'brightness(0) invert(1) drop-shadow(0 0 30px rgba(109,155,125,0.35))'
+                    : 'drop-shadow(0 0 20px rgba(109,155,125,0.25))',
                 }}
               />
               <div className="mt-4 h-px w-64 bg-gradient-to-r from-transparent via-[#6d9b7d]/40 to-transparent" />
@@ -530,7 +539,7 @@ export default function Inventario() {
                       onClick={() => navigate(`/inventario/${ub.id}`)}
                       className={`text-left p-3 rounded-lg border transition-all duration-200 ${
                         hoveredId === ub.id
-                          ? 'bg-[#6d9b7d]/10 border-[#6d9b7d]/50 shadow-[0_0_15px_rgba(56,189,248,0.1)]'
+                          ? 'bg-[#6d9b7d]/10 border-[#6d9b7d]/50 shadow-[0_0_15px_rgba(109,155,125,0.12)]'
                           : 'bg-white dark:bg-slate-900/50 border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 shadow-sm dark:shadow-none'
                       }`}
                     >
@@ -780,7 +789,7 @@ export default function Inventario() {
                 <div className="space-y-1.5">
                   {ubicaciones.map(u => (
                     <label key={u.id} className="flex items-center gap-2.5 cursor-pointer group">
-                      <input type="checkbox" checked={selUbics.has(u.id)} onChange={() => toggleUbic(u.id)} className="w-3.5 h-3.5 accent-sky-400" />
+                      <input type="checkbox" checked={selUbics.has(u.id)} onChange={() => toggleUbic(u.id)} className="w-3.5 h-3.5 accent-primary" />
                       <span className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">{u.nombre}</span>
                     </label>
                   ))}
@@ -797,7 +806,7 @@ export default function Inventario() {
                 <div className="space-y-1.5">
                   {categorias.map(c => (
                     <label key={c.id} className="flex items-center gap-2.5 cursor-pointer group">
-                      <input type="checkbox" checked={selCats.has(c.id)} onChange={() => toggleCat(c.id)} className="w-3.5 h-3.5 accent-sky-400" />
+                      <input type="checkbox" checked={selCats.has(c.id)} onChange={() => toggleCat(c.id)} className="w-3.5 h-3.5 accent-primary" />
                       <span className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">{c.nombre}</span>
                     </label>
                   ))}

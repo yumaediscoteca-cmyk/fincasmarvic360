@@ -39,6 +39,7 @@ export default function Materiales() {
   const [pdfOpen, setPdfOpen] = useState(false)
 
   const handleExportPDF = async ({ desde, hasta, filtros }: PDFExportParams) => {
+    try {
     const categoriasIncluidas = filtros.solo_tab_actual
       ? [activeCatId]
       : categorias.map(c => c.id)
@@ -85,6 +86,15 @@ export default function Materiales() {
         },
       ],
     })
+    toast({ title: 'PDF generado', description: 'Materiales descargados.' })
+    } catch (e) {
+      console.error('PDF materiales:', e)
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      })
+    }
   }
 
   const resetForm = () => {

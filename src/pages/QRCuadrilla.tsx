@@ -191,7 +191,7 @@ export default function QRCuadrilla() {
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <p className="text-xs text-slate-500 mb-1">Hora entrada</p>
-              <p className="text-lg font-mono text-sky-400">
+              <p className="text-lg font-mono text-primary">
                 {presenciaActual?.hora_entrada 
                   ? new Date(presenciaActual.hora_entrada).toLocaleTimeString('es-ES', { 
                       hour: '2-digit', 

@@ -9,6 +9,8 @@ import { useTheme } from '../context/ThemeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { generarPDFCorporativoBase, pdfCorporateSection, pdfCorporateTable } from '@/utils/pdfUtils';
+import { toast } from '@/hooks/use-toast';
+import { PageShell } from '@/components/layout/PageShell';
 
 // ── Hook de Datos del Dashboard ─────────────────────────────────────────────
 
@@ -291,25 +293,31 @@ export default function Dashboard() {
           }
         ]
       });
+      toast({ title: 'PDF generado', description: 'Informe diario descargado.' });
     } catch (e) {
       console.error('Error generando informe:', e);
+      toast({
+        title: 'Error al generar el informe',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      });
     } finally {
       setGeneratingPdf(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-y-auto bg-background text-foreground transition-colors pb-10">
+    <PageShell.Root className="relative overflow-y-auto transition-colors pb-10">
       
       {/* Usuario (tema global en AppLayout → GlobalThemeToggle) */}
       {user && (
-        <div className="fixed z-[60] hidden sm:flex items-center gap-3 top-[max(1rem,env(safe-area-inset-top))] right-[4.75rem] max-w-[min(50vw,calc(100%-5.5rem))]">
+        <div className="fixed z-chrome hidden sm:flex items-center gap-3 top-[max(1rem,env(safe-area-inset-top))] right-[4.75rem] max-w-[min(50vw,calc(100%-5.5rem))]">
           <span className="truncate text-xs font-medium text-slate-500 dark:text-slate-400">{user.email}</span>
           <button type="button" onClick={handleSignOut} className="shrink-0 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">Salir</button>
         </div>
       )}
 
-      <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full pt-16 sm:pt-10 space-y-6">
+      <PageShell.Main maxWidth="full" className="px-4 sm:px-6 lg:px-8 pt-16 sm:pt-10 space-y-6">
         
         {/* Cabecera: títulos a la izquierda; logo + CTA agrupados (logo más grande, alineado con Informe) */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -328,7 +336,7 @@ export default function Dashboard() {
               type="button"
               onClick={handleGenerarInforme}
               disabled={generatingPdf}
-              className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[11px] font-black uppercase tracking-widest shadow-lg shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 sm:w-auto"
+              className="btn-primary flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[11px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 sm:w-auto"
             >
               {generatingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
               Informe del Día
@@ -365,7 +373,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 dark:text-slate-400 mb-5">
-            <span className="flex items-center gap-1.5"><CloudRain className="w-4 h-4 text-blue-400"/> {weather?.current?.precipitation ?? 0} mm</span>
+            <span className="flex items-center gap-1.5"><CloudRain className="w-4 h-4 text-primary"/> {weather?.current?.precipitation ?? 0} mm</span>
             <span className="flex items-center gap-1.5"><Wind className="w-4 h-4 text-slate-400"/> {weather?.current?.windspeed_10m ?? 0} km/h</span>
               </div>
               <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-100 dark:border-white/5">
@@ -388,7 +396,7 @@ export default function Dashboard() {
           <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard title="Parcelas Activas" value={isLoading ? '...' : data?.kpis?.parcelasActivas} icon={MapIcon} color="text-emerald-500" />
             <KpiCard title="Hectáreas" value={isLoading ? '...' : Math.round(data?.kpis?.haPlantadas || 0)} icon={Leaf} color="text-green-500" />
-            <KpiCard title="Trabajos Sem." value={isLoading ? '...' : data?.kpis?.trabajosSemana} icon={Activity} color="text-blue-500" />
+            <KpiCard title="Trabajos Sem." value={isLoading ? '...' : data?.kpis?.trabajosSemana} icon={Activity} color="text-primary" />
             <KpiCard title="Alertas Activas" value={isLoading ? '...' : data?.kpis?.alertasActivas} icon={AlertTriangle} color={(data?.kpis?.alertasActivas || 0) > 0 ? "text-red-500" : "text-slate-400"} />
           </div>
         </div>
@@ -462,18 +470,18 @@ export default function Dashboard() {
 
         {/* Panel LIA - Background observation */}
         {(liaEventos > 0 || liaUltimaMemoria) && (
-          <div className="bg-sky-50 dark:bg-sky-900/20 border border-sky-100 dark:border-sky-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-sky-500/20 flex items-center justify-center shrink-0 border border-sky-500/30">
-              <span className="text-sky-600 dark:text-sky-400 font-black text-[10px] uppercase tracking-widest">LIA</span>
+          <div className="bg-primary/5 dark:bg-primary/10 border border-primary/15 dark:border-primary/25 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0 border border-primary/25">
+              <span className="text-primary font-black text-[10px] uppercase tracking-widest">LIA</span>
             </div>
-            <div className="text-xs text-sky-800 dark:text-sky-300 font-medium">
+            <div className="text-xs text-foreground/90 font-medium">
               <p className="font-bold mb-0.5">Modo observación activo · {liaEventos} eventos analizados hoy</p>
               {liaUltimaMemoria && <p className="opacity-80 line-clamp-2 sm:line-clamp-1">{liaUltimaMemoria}</p>}
             </div>
           </div>
         )}
 
-      </div>
-    </div>
+      </PageShell.Main>
+    </PageShell.Root>
   );
 }

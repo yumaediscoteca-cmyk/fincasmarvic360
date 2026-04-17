@@ -16,6 +16,7 @@ import {
   PDF_MARGIN,
   PDF_TEXT_W,
 } from '@/utils/pdfUtils'
+import { toast } from '@/hooks/use-toast'
 import {
   useUbicaciones, useCategorias, useUltimoRegistro,
   useRegistros, useAddRegistro, useUpdateRegistro,
@@ -642,8 +643,11 @@ export default function InventarioUbicacion() {
         ],
       })
       setShowInformeModal(false)
+      toast({ title: 'PDF generado', description: 'Informe de ubicación descargado.' })
     } catch (err: unknown) {
-      setPdfError(err instanceof Error ? err.message : 'Error generando el PDF')
+      const msg = err instanceof Error ? err.message : 'Error generando el PDF'
+      setPdfError(msg)
+      toast({ title: 'Error al generar el PDF', description: msg, variant: 'destructive' })
     } finally {
       setGenerandoPDF(false)
     }

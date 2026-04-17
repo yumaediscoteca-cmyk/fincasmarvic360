@@ -126,6 +126,17 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
 
+      /** Alineado con GlobalSidebar / tema: cabecera y menús bajo overlay del sidebar */
+      zIndex: {
+        page: "10",
+        "page-header": "40",
+        chrome: "60",
+        "page-dropdown": "65",
+        "sidebar-backdrop": "70",
+        sidebar: "80",
+        modal: "90",
+        toast: "100",
+      },
 
       keyframes: {
         "accordion-down": {

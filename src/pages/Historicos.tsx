@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { FINCAS_NOMBRES as FINCAS } from '@/constants/farms'
 import { PDFExportModal, type PDFExportParams } from '@/components/base'
 import { generarPDFCorporativoBase, pdfCorporateSection, pdfCorporateTable } from '@/utils/pdfUtils'
+import { toast } from '@/hooks/use-toast'
 import { horasEntreMarcasISO } from '@/utils/horasTrabajo'
 import type { Tables } from '@/integrations/supabase/types'
 
@@ -251,35 +252,45 @@ export default function Historicos() {
       e.finca ?? '—',
     ])
 
-    await generarPDFCorporativoBase({
-      titulo: 'Históricos del Sistema',
-      subtitulo: `Búsqueda global · ${d1} → ${d2}`,
-      fecha: new Date(),
-      filename: `historicos_${d1}_${d2}.pdf`,
-      bloques: [
-        (ctx) => {
-          pdfCorporateSection(ctx, 'Resumen')
-          ctx.writeLine('Total registros', String(filtered.length))
-          ctx.writeLine('Rango', `${d1} → ${d2}`)
-          if (filtros.respetar_filtros_actuales) {
-            if (modulo !== 'todos') ctx.writeLine('Módulo', modulo)
-            if (finca) ctx.writeLine('Finca', finca)
-            if (busqueda) ctx.writeLine('Búsqueda', busqueda)
-          }
-          ctx.y += 4
-        },
-        (ctx) => {
-          if (rows.length === 0) return
-          pdfCorporateSection(ctx, 'Registros')
-          pdfCorporateTable(
-            ctx,
-            ['Fecha', 'Hora', 'Módulo', 'Tipo', 'Título', 'Finca'],
-            [20, 14, 22, 28, 60, 38],
-            rows,
-          )
-        },
-      ],
-    })
+    try {
+      await generarPDFCorporativoBase({
+        titulo: 'Históricos del Sistema',
+        subtitulo: `Búsqueda global · ${d1} → ${d2}`,
+        fecha: new Date(),
+        filename: `historicos_${d1}_${d2}.pdf`,
+        bloques: [
+          (ctx) => {
+            pdfCorporateSection(ctx, 'Resumen')
+            ctx.writeLine('Total registros', String(filtered.length))
+            ctx.writeLine('Rango', `${d1} → ${d2}`)
+            if (filtros.respetar_filtros_actuales) {
+              if (modulo !== 'todos') ctx.writeLine('Módulo', modulo)
+              if (finca) ctx.writeLine('Finca', finca)
+              if (busqueda) ctx.writeLine('Búsqueda', busqueda)
+            }
+            ctx.y += 4
+          },
+          (ctx) => {
+            if (rows.length === 0) return
+            pdfCorporateSection(ctx, 'Registros')
+            pdfCorporateTable(
+              ctx,
+              ['Fecha', 'Hora', 'Módulo', 'Tipo', 'Título', 'Finca'],
+              [20, 14, 22, 28, 60, 38],
+              rows,
+            )
+          },
+        ],
+      })
+      toast({ title: 'PDF generado', description: 'Históricos descargados.' })
+    } catch (e) {
+      console.error('PDF históricos:', e)
+      toast({
+        title: 'Error al generar el PDF',
+        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+        variant: 'destructive',
+      })
+    }
   }
 
   const filtradas = useMemo(() => {
