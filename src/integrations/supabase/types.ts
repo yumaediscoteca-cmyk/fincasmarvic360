@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       ai_proposal_validations: {
@@ -1212,6 +1187,7 @@ export type Database = {
           notas: string | null
           precio_unitario: number | null
           producto_id: string | null
+          responsable: string | null
           ubicacion_id: string | null
           unidad: string | null
         }
@@ -1228,6 +1204,7 @@ export type Database = {
           notas?: string | null
           precio_unitario?: number | null
           producto_id?: string | null
+          responsable?: string | null
           ubicacion_id?: string | null
           unidad?: string | null
         }
@@ -1244,6 +1221,7 @@ export type Database = {
           notas?: string | null
           precio_unitario?: number | null
           producto_id?: string | null
+          responsable?: string | null
           ubicacion_id?: string | null
           unidad?: string | null
         }
@@ -2517,6 +2495,448 @@ export type Database = {
           },
         ]
       }
+      parte_enc_alerta_outbox: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          estado: string
+          gravedad: string
+          id: string
+          incidencia_id: string
+          payload: Json
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          estado?: string
+          gravedad: string
+          id?: string
+          incidencia_id: string
+          payload: Json
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          estado?: string
+          gravedad?: string
+          id?: string
+          incidencia_id?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parte_enc_alerta_outbox_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parte_enc_alerta_outbox_incidencia_id_fkey"
+            columns: ["incidencia_id"]
+            isOneToOne: false
+            referencedRelation: "parte_enc_incidencia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parte_enc_cambio_personal: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          decidido_por: string
+          fecha: string
+          id: string
+          justificacion: string
+          numero_empleado: string
+          reportado_por: string
+          tarea_destino_id: string | null
+          tarea_origen_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          decidido_por: string
+          fecha: string
+          id?: string
+          justificacion: string
+          numero_empleado: string
+          reportado_por: string
+          tarea_destino_id?: string | null
+          tarea_origen_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          decidido_por?: string
+          fecha?: string
+          id?: string
+          justificacion?: string
+          numero_empleado?: string
+          reportado_por?: string
+          tarea_destino_id?: string | null
+          tarea_origen_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parte_enc_cambio_personal_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parte_enc_cambio_personal_tarea_destino_id_fkey"
+            columns: ["tarea_destino_id"]
+            isOneToOne: false
+            referencedRelation: "parte_enc_tarea_dia"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parte_enc_cambio_personal_tarea_origen_id_fkey"
+            columns: ["tarea_origen_id"]
+            isOneToOne: false
+            referencedRelation: "parte_enc_tarea_dia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parte_enc_cierre_escalado: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          estado: string
+          fecha: string
+          id: string
+          iniciado_por: string
+          nivel: string
+          notas: string | null
+          payload_resumen: Json | null
+          revisado_por: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          estado?: string
+          fecha: string
+          id?: string
+          iniciado_por: string
+          nivel: string
+          notas?: string | null
+          payload_resumen?: Json | null
+          revisado_por?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          estado?: string
+          fecha?: string
+          id?: string
+          iniciado_por?: string
+          nivel?: string
+          notas?: string | null
+          payload_resumen?: Json | null
+          revisado_por?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parte_enc_cierre_escalado_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parte_enc_incidencia: {
+        Row: {
+          alerta_registrada: boolean | null
+          alerta_timestamp: string | null
+          company_id: string
+          created_at: string | null
+          decidido_por: string | null
+          descripcion: string
+          fecha: string
+          finca: string | null
+          foto_url: string | null
+          gravedad: string
+          id: string
+          latitud: number | null
+          longitud: number | null
+          reportado_por: string
+          sector: string | null
+          tarea_id: string | null
+          tipo: string
+        }
+        Insert: {
+          alerta_registrada?: boolean | null
+          alerta_timestamp?: string | null
+          company_id: string
+          created_at?: string | null
+          decidido_por?: string | null
+          descripcion: string
+          fecha: string
+          finca?: string | null
+          foto_url?: string | null
+          gravedad: string
+          id?: string
+          latitud?: number | null
+          longitud?: number | null
+          reportado_por: string
+          sector?: string | null
+          tarea_id?: string | null
+          tipo: string
+        }
+        Update: {
+          alerta_registrada?: boolean | null
+          alerta_timestamp?: string | null
+          company_id?: string
+          created_at?: string | null
+          decidido_por?: string | null
+          descripcion?: string
+          fecha?: string
+          finca?: string | null
+          foto_url?: string | null
+          gravedad?: string
+          id?: string
+          latitud?: number | null
+          longitud?: number | null
+          reportado_por?: string
+          sector?: string | null
+          tarea_id?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parte_enc_incidencia_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parte_enc_incidencia_tarea_id_fkey"
+            columns: ["tarea_id"]
+            isOneToOne: false
+            referencedRelation: "parte_enc_tarea_dia"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parte_enc_maquinaria_cierre: {
+        Row: {
+          cerrado_por: string
+          company_id: string
+          created_at: string | null
+          descripcion_maquinaria: string | null
+          estado_cierre: string
+          fecha: string
+          id: string
+          maquinaria_id: string | null
+          notas: string | null
+        }
+        Insert: {
+          cerrado_por: string
+          company_id: string
+          created_at?: string | null
+          descripcion_maquinaria?: string | null
+          estado_cierre: string
+          fecha: string
+          id?: string
+          maquinaria_id?: string | null
+          notas?: string | null
+        }
+        Update: {
+          cerrado_por?: string
+          company_id?: string
+          created_at?: string | null
+          descripcion_maquinaria?: string | null
+          estado_cierre?: string
+          fecha?: string
+          id?: string
+          maquinaria_id?: string | null
+          notas?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parte_enc_maquinaria_cierre_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parte_enc_maquinaria_cierre_maquinaria_id_fkey"
+            columns: ["maquinaria_id"]
+            isOneToOne: false
+            referencedRelation: "maquinaria_tractores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parte_enc_maquinaria_cierre_maquinaria_id_fkey"
+            columns: ["maquinaria_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_activos_en_ubicacion"
+            referencedColumns: ["tractor_id"]
+          },
+          {
+            foreignKeyName: "parte_enc_maquinaria_cierre_maquinaria_id_fkey"
+            columns: ["maquinaria_id"]
+            isOneToOne: false
+            referencedRelation: "v_tractores_en_inventario"
+            referencedColumns: ["tractor_id"]
+          },
+        ]
+      }
+      parte_enc_plan_confirmacion: {
+        Row: {
+          company_id: string
+          confirmado_at: string
+          fecha: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          confirmado_at?: string
+          fecha: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          confirmado_at?: string
+          fecha?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parte_enc_plan_confirmacion_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parte_enc_tarea_dia: {
+        Row: {
+          apero_descripcion: string | null
+          asignado_a_rol: string
+          company_id: string
+          created_at: string | null
+          created_by: string | null
+          descripcion: string | null
+          estado: string
+          fecha: string
+          finca: string
+          hora_fin: string | null
+          hora_inicio: string | null
+          id: string
+          maquinaria_id: string | null
+          orden: number | null
+          output_cantidad: number | null
+          output_notas: string | null
+          output_unidad: string | null
+          personal_asignado: string[] | null
+          sector: string | null
+          tipo: string
+          titulo: string
+          trabajo_registro_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          apero_descripcion?: string | null
+          asignado_a_rol: string
+          company_id: string
+          created_at?: string | null
+          created_by?: string | null
+          descripcion?: string | null
+          estado?: string
+          fecha: string
+          finca: string
+          hora_fin?: string | null
+          hora_inicio?: string | null
+          id?: string
+          maquinaria_id?: string | null
+          orden?: number | null
+          output_cantidad?: number | null
+          output_notas?: string | null
+          output_unidad?: string | null
+          personal_asignado?: string[] | null
+          sector?: string | null
+          tipo: string
+          titulo: string
+          trabajo_registro_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          apero_descripcion?: string | null
+          asignado_a_rol?: string
+          company_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          descripcion?: string | null
+          estado?: string
+          fecha?: string
+          finca?: string
+          hora_fin?: string | null
+          hora_inicio?: string | null
+          id?: string
+          maquinaria_id?: string | null
+          orden?: number | null
+          output_cantidad?: number | null
+          output_notas?: string | null
+          output_unidad?: string | null
+          personal_asignado?: string[] | null
+          sector?: string | null
+          tipo?: string
+          titulo?: string
+          trabajo_registro_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parte_enc_tarea_dia_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parte_enc_tarea_dia_maquinaria_id_fkey"
+            columns: ["maquinaria_id"]
+            isOneToOne: false
+            referencedRelation: "maquinaria_tractores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parte_enc_tarea_dia_maquinaria_id_fkey"
+            columns: ["maquinaria_id"]
+            isOneToOne: false
+            referencedRelation: "v_inventario_activos_en_ubicacion"
+            referencedColumns: ["tractor_id"]
+          },
+          {
+            foreignKeyName: "parte_enc_tarea_dia_maquinaria_id_fkey"
+            columns: ["maquinaria_id"]
+            isOneToOne: false
+            referencedRelation: "v_tractores_en_inventario"
+            referencedColumns: ["tractor_id"]
+          },
+          {
+            foreignKeyName: "parte_enc_tarea_dia_trabajo_registro_id_fkey"
+            columns: ["trabajo_registro_id"]
+            isOneToOne: false
+            referencedRelation: "trabajos_registro"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parte_estado_finca: {
         Row: {
           company_id: string | null
@@ -2812,13 +3232,19 @@ export type Database = {
       personal: {
         Row: {
           activo: boolean | null
+          carnet_caducidad: string | null
+          carnet_tipo: string | null
           categoria: string | null
+          codigo_interno: string | null
           company_id: string | null
           created_at: string | null
           created_by: string | null
           dni: string | null
+          fecha_alta: string | null
+          finca_asignada: string | null
           foto_url: string | null
           id: string
+          licencias: string | null
           nombre: string
           notas: string | null
           qr_code: string | null
@@ -2827,13 +3253,19 @@ export type Database = {
         }
         Insert: {
           activo?: boolean | null
+          carnet_caducidad?: string | null
+          carnet_tipo?: string | null
           categoria?: string | null
+          codigo_interno?: string | null
           company_id?: string | null
           created_at?: string | null
           created_by?: string | null
           dni?: string | null
+          fecha_alta?: string | null
+          finca_asignada?: string | null
           foto_url?: string | null
           id?: string
+          licencias?: string | null
           nombre: string
           notas?: string | null
           qr_code?: string | null
@@ -2842,13 +3274,19 @@ export type Database = {
         }
         Update: {
           activo?: boolean | null
+          carnet_caducidad?: string | null
+          carnet_tipo?: string | null
           categoria?: string | null
+          codigo_interno?: string | null
           company_id?: string | null
           created_at?: string | null
           created_by?: string | null
           dni?: string | null
+          fecha_alta?: string | null
+          finca_asignada?: string | null
           foto_url?: string | null
           id?: string
+          licencias?: string | null
           nombre?: string
           notas?: string | null
           qr_code?: string | null
@@ -4165,8 +4603,10 @@ export type Database = {
           company_id: string | null
           created_at: string | null
           email: string | null
+          fincas_permitidas: string[] | null
           full_name: string | null
           id: string
+          rol_encargado: string | null
           role: string | null
           status: string | null
           updated_at: string | null
@@ -4175,8 +4615,10 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           email?: string | null
+          fincas_permitidas?: string[] | null
           full_name?: string | null
           id: string
+          rol_encargado?: string | null
           role?: string | null
           status?: string | null
           updated_at?: string | null
@@ -4185,8 +4627,10 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           email?: string | null
+          fincas_permitidas?: string[] | null
           full_name?: string | null
           id?: string
+          rol_encargado?: string | null
           role?: string | null
           status?: string | null
           updated_at?: string | null
@@ -4829,9 +5273,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       ai_proposal_category: ["analysis", "planning", "report"],
