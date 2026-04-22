@@ -18,7 +18,7 @@ export const CATEGORIA_LABELS: Record<CategoriaPersonal, string> = {
 
 export const CATEGORIA_COLORS: Record<CategoriaPersonal, string> = {
   operario_campo:      '#22c55e',
-  encargado:           '#38bdf8',
+  encargado:           '#40916c',
   conductor_maquinaria:'#fb923c',
   conductor_camion:    '#a78bfa',
 };

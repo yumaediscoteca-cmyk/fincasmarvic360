@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,23 +7,34 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext";
 import { SidebarProvider } from "./context/SidebarContext";
 import AppLayout from "./components/AppLayout";
-import FarmSelector from "./pages/FarmSelector";
-import FarmMap from "./pages/FarmMap";
-import Dashboard from "./pages/Dashboard";
-import Inventario from "./pages/Inventario";
-import InventarioUbicacion from "./pages/InventarioUbicacion";
-import ParteDiario from "./pages/ParteDiario";
-import Trabajos from "./pages/Trabajos";
-import Logistica from "./pages/Logistica";
-import Maquinaria from "./pages/Maquinaria";
-import Personal from "./pages/Personal";
-import QRCuadrilla from "./pages/QRCuadrilla";
-import EstadoGeneral from "./pages/EstadoGeneral";
-import Historicos from "./pages/Historicos";
-import ExportarPDF from "./pages/ExportarPDF";
-import NotFound from "./pages/NotFound";
+import PageLoadingFallback from "./components/PageLoadingFallback";
 
-const queryClient = new QueryClient();
+const FarmSelector = lazy(() => import("./pages/FarmSelector"));
+const FarmMap = lazy(() => import("./pages/FarmMap"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Inventario = lazy(() => import("./pages/Inventario"));
+const InventarioUbicacion = lazy(() => import("./pages/InventarioUbicacion"));
+const ParteDiario = lazy(() => import("./pages/ParteDiario"));
+const Trabajos = lazy(() => import("./pages/Trabajos"));
+const Logistica = lazy(() => import("./pages/Logistica"));
+const Maquinaria = lazy(() => import("./pages/Maquinaria"));
+const Personal = lazy(() => import("./pages/Personal"));
+const QRCuadrilla = lazy(() => import("./pages/QRCuadrilla"));
+const EstadoGeneral = lazy(() => import("./pages/EstadoGeneral"));
+const Historicos = lazy(() => import("./pages/Historicos"));
+const ExportarPDF = lazy(() => import("./pages/ExportarPDF"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      gcTime: 5 * 60_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <ThemeProvider>
@@ -33,7 +45,14 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/qr/:cuadrilla_id" element={<QRCuadrilla />} />
+              <Route
+                path="/qr/:cuadrilla_id"
+                element={
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <QRCuadrilla />
+                  </Suspense>
+                }
+              />
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/dashboard" element={<Dashboard />} />

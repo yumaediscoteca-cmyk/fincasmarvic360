@@ -87,6 +87,7 @@ export function useParcelTickets(parcelId: string | null) {
         .select(`*, harvests!inner(parcel_id, crop, date), camiones(matricula, empresa_transporte)`)
         .eq('harvests.parcel_id', parcelId)
         .order('created_at', { ascending: false })
+        .limit(300)
       if (error) throw error
       return data ?? []
     },
@@ -111,6 +112,7 @@ export function useParcelResiduos(parcelId: string | null) {
         .select('*')
         .eq('parcel_id', parcelId)
         .order('created_at', { ascending: false })
+        .limit(300)
       if (error) throw error
       return data ?? []
     },
