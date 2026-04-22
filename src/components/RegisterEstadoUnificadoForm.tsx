@@ -3,23 +3,16 @@ import { supabase } from '@/integrations/supabase/client'
 import {
   useParcelas,
   useCropCatalog,
-} from '@/hooks/useParcelData'
-import {
   useInsertPlanting,
   useInsertHarvest,
-} from '@/hooks/useOperaciones'
-import {
   useInsertAnalisisSuelo,
   useInsertLecturaSensor,
   useInsertAnalisisAgua,
-} from '@/hooks/useAnalisis'
-import { useZonasRiego, useAddZonaRiego, useAddRegistroRiego } from '@/hooks/useRiego'
+} from '@/hooks/useParcelData'
 import { toast } from '@/hooks/use-toast'
-import { Camera, ChevronDown, ChevronUp, Droplet } from 'lucide-react'
+import { Camera, ChevronDown, ChevronUp } from 'lucide-react'
 import { FINCAS_NOMBRES as FINCAS } from '@/constants/farms'
 import { ESTADOS_PARCELA as ESTADOS } from '@/constants/estadosParcela'
-import SelectWithOther from '@/components/base/SelectWithOther'
-import AudioInput from '@/components/base/AudioInput'
 
 const TEXTURAS = [
   'Arcilloso', 'Franco arcilloso', 'Franco', 'Franco arenoso', 'Arenoso', 'Limoso',
@@ -97,17 +90,6 @@ export default function RegisterEstadoUnificadoForm({
   const [cosechaKg,      setCosechaKg]      = useState('')
   const [cosechaFecha,   setCosechaFecha]   = useState(new Date().toISOString().slice(0, 10))
 
-  // ── Riego (toggle) ────────────────────────────────
-  const [showRiego,        setShowRiego]        = useState(false)
-  const [riegoZona,        setRiegoZona]        = useState('')
-  const [riegoFechaInicio, setRiegoFechaInicio] = useState('')
-  const [riegoFechaFin,    setRiegoFechaFin]    = useState('')
-  const [riegoLitros,      setRiegoLitros]      = useState('')
-  const [riegoPresion,     setRiegoPresion]     = useState('')
-  const [riegoOrigen,      setRiegoOrigen]      = useState('')
-  const [riegoNotas,       setRiegoNotas]       = useState('')
-  const { data: zonasRiego = [] }               = useZonasRiego(activeParcelId)
-
   // ── Análisis suelo (toggle) ───────────────────────
   const [showSuelo, setShowSuelo] = useState(false)
   const [suelo, setSuelo] = useState({
@@ -142,8 +124,6 @@ export default function RegisterEstadoUnificadoForm({
   const mutSuelo    = useInsertAnalisisSuelo()
   const mutSensor   = useInsertLecturaSensor()
   const mutAgua     = useInsertAnalisisAgua()
-  const mutAddZona  = useAddZonaRiego()
-  const mutAddRiego = useAddRegistroRiego()
 
   // ── Submit ────────────────────────────────────────
   async function handleSubmit() {
@@ -155,15 +135,18 @@ export default function RegisterEstadoUnificadoForm({
       toast({ title: 'Error', description: 'Selecciona el estado de la parcela', variant: 'destructive' })
       return
     }
-    // Modo piloto: foto opcional
+    if (!foto) {
+      toast({ title: 'Error', description: 'La foto es obligatoria', variant: 'destructive' })
+      return
+    }
 
     setSaving(true)
     const warnings: string[] = []
 
     try {
-      // 1. Subir foto si existe
-      const foto_url = foto ? await uploadFoto(foto, activeParcelId) : null
-      if (foto && !foto_url) warnings.push('foto')
+      // 1. Subir foto
+      const foto_url = await uploadFoto(foto, activeParcelId)
+      if (!foto_url) warnings.push('foto')
 
       // 2. Guardar estado + actualizar parcels
       const { error: errEstado } = await supabase
@@ -201,6 +184,7 @@ export default function RegisterEstadoUnificadoForm({
             date:          cosechaFecha,
             crop:          cosechaCultivo,
             production_kg: cosechaKg ? parseFloat(cosechaKg) : null,
+            notes:         null,
           })
         } catch { warnings.push('cosecha') }
       }
@@ -238,43 +222,6 @@ export default function RegisterEstadoUnificadoForm({
         } catch { warnings.push('análisis agua') }
       }
 
-      // 8. Riego del día
-      if (showRiego && riegoZona && riegoFechaInicio) {
-        try {
-          let zonaId = null;
-          const existingZona = zonasRiego.find(z => z.nombre_zona === riegoZona);
-          if (existingZona) {
-            zonaId = existingZona.id;
-          } else {
-            const newZona = await mutAddZona.mutateAsync({
-              parcel_id: activeParcelId,
-              nombre_zona: riegoZona,
-            });
-            zonaId = newZona.id;
-          }
-          
-          const inicio = new Date(riegoFechaInicio)
-          const fechaStr = inicio.toISOString().slice(0, 10)
-          let duracion_minutos: number | null = null
-          if (riegoFechaFin) {
-            const ms = new Date(riegoFechaFin).getTime() - inicio.getTime()
-            if (ms > 0) duracion_minutos = Math.round(ms / 60000)
-          }
-          const litros = num(riegoLitros)
-          const volumen_m3 = litros != null && litros > 0 ? litros / 1000 : null
-          const notasRiego = [riegoNotas, riegoOrigen ? `Origen: ${riegoOrigen}` : ''].filter(Boolean).join(' · ') || null
-
-          await mutAddRiego.mutateAsync({
-            zona_id: zonaId,
-            fecha: fechaStr,
-            volumen_m3,
-            duracion_minutos,
-            presion_bar: num(riegoPresion),
-            notas: notasRiego,
-          })
-        } catch { warnings.push('riego') }
-      }
-
       // 7. Sensor NDVI/SPAD
       if (showSensor && (sensor.indice_salud || sensor.ndvi || sensor.clorofila)) {
         try {
@@ -295,8 +242,8 @@ export default function RegisterEstadoUnificadoForm({
       }
       onClose()
 
-    } catch (e: unknown) {
-      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Error desconocido', variant: 'destructive' })
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -304,7 +251,7 @@ export default function RegisterEstadoUnificadoForm({
 
   // ── Render ────────────────────────────────────────
 
-  const inCls = `w-full bg-slate-800/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#6d9b7d]/50 transition-colors`
+  const inCls = `w-full bg-slate-800/60 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-[#38bdf8]/50 transition-colors`
 
   return (
     <div className="space-y-5">
@@ -338,9 +285,9 @@ export default function RegisterEstadoUnificadoForm({
           )}
         </div>
       ) : (
-        <div className="rounded-lg bg-slate-800/50 border border-[#6d9b7d]/20 px-3 py-2">
+        <div className="rounded-lg bg-slate-800/50 border border-[#38bdf8]/20 px-3 py-2">
           <p className="text-[9px] text-slate-500 uppercase tracking-wider">{propFarmName}</p>
-          <p className="text-sm font-black text-[#6d9b7d]">{propParcelName ?? propParcelId}</p>
+          <p className="text-sm font-black text-[#38bdf8]">{propParcelName ?? propParcelId}</p>
         </div>
       )}
 
@@ -355,7 +302,7 @@ export default function RegisterEstadoUnificadoForm({
               onClick={() => setEstado(e.value)}
               className={`py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 estado === e.value
-                  ? 'bg-[#6d9b7d] text-slate-900'
+                  ? 'bg-[#38bdf8] text-slate-900'
                   : 'bg-slate-800/60 border border-white/10 text-slate-300 hover:border-white/20'
               }`}
             >
@@ -435,51 +382,6 @@ export default function RegisterEstadoUnificadoForm({
           placeholder="Estado visual, incidencias..."
           className={`${inCls} resize-none`}
         />
-      </div>
-
-      {/* ── RIEGO DEL DÍA (toggle) ── */}
-      <div className="rounded-xl border border-white/10 overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowRiego(p => !p)}
-          className="w-full flex items-center justify-between px-4 py-2.5 bg-slate-800/40 hover:bg-slate-800/60 transition-colors"
-        >
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2"><Droplet className="w-3.5 h-3.5" /> Riego del día</span>
-          {showRiego ? <ChevronUp className="w-3.5 h-3.5 text-slate-500" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500" />}
-        </button>
-        {showRiego && (
-          <div className="p-4 space-y-4 bg-slate-900/50">
-            <SelectWithOther
-              label="Zona de riego *"
-              options={zonasRiego.map(z => z.nombre_zona)}
-              value={riegoZona}
-              onChange={setRiegoZona}
-              onCreateNew={setRiegoZona}
-              placeholder="Ej: Sector Norte"
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <div><p className="text-[9px] text-slate-500 uppercase tracking-wide mb-1">Inicio *</p><input type="datetime-local" value={riegoFechaInicio} onChange={e => setRiegoFechaInicio(e.target.value)} className={inCls} /></div>
-              <div><p className="text-[9px] text-slate-500 uppercase tracking-wide mb-1">Fin</p><input type="datetime-local" value={riegoFechaFin} onChange={e => setRiegoFechaFin(e.target.value)} className={inCls} /></div>
-              <div><p className="text-[9px] text-slate-500 uppercase tracking-wide mb-1">Litros</p><input type="number" placeholder="0" value={riegoLitros} onChange={e => setRiegoLitros(e.target.value)} className={inCls} /></div>
-              <div><p className="text-[9px] text-slate-500 uppercase tracking-wide mb-1">Presión (bar)</p><input type="number" step="0.1" placeholder="0.0" value={riegoPresion} onChange={e => setRiegoPresion(e.target.value)} className={inCls} /></div>
-            </div>
-            <SelectWithOther
-              label="Origen del agua"
-              options={['Pozo', 'Balsa', 'Red municipal', 'Río', 'Otro']}
-              value={riegoOrigen}
-              onChange={setRiegoOrigen}
-              onCreateNew={setRiegoOrigen}
-              placeholder="Seleccionar..."
-            />
-            <div className="pt-2">
-              <AudioInput
-                label="Notas de riego"
-                value={riegoNotas}
-                onChange={setRiegoNotas}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── ANÁLISIS SUELO (toggle) ── */}
@@ -565,10 +467,10 @@ export default function RegisterEstadoUnificadoForm({
         )}
       </div>
 
-      {/* ── FOTO RECOMENDADA (piloto) ── */}
+      {/* ── FOTO OBLIGATORIA ── */}
       <div>
         <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.25em] mb-2">
-          Foto <span className="text-amber-500/70">(recomendada)</span>
+          Foto <span className="text-[#38bdf8]">*</span>
         </p>
         {foto ? (
           <div className="flex items-center gap-3 p-3 bg-slate-800/60 rounded-xl border border-white/10">
@@ -580,7 +482,7 @@ export default function RegisterEstadoUnificadoForm({
             <button type="button" onClick={() => setFoto(null)} className="text-slate-500 hover:text-red-400 transition-colors text-lg">×</button>
           </div>
         ) : (
-          <label className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-xl border border-dashed border-white/20 cursor-pointer hover:border-[#6d9b7d]/40 transition-colors">
+          <label className="flex items-center gap-3 p-3 bg-slate-800/40 rounded-xl border border-dashed border-white/20 cursor-pointer hover:border-[#38bdf8]/40 transition-colors">
             <Camera className="w-5 h-5 text-slate-500" />
             <span className="text-sm text-slate-400">Tomar foto o seleccionar</span>
             <input
@@ -604,10 +506,10 @@ export default function RegisterEstadoUnificadoForm({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={saving || !activeParcelId || !estado}
-          className="flex-1 py-2.5 rounded-lg bg-[#6d9b7d]/20 border border-[#6d9b7d]/40 text-[11px] font-black uppercase tracking-widest text-[#6d9b7d] hover:bg-[#6d9b7d]/30 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+          disabled={saving || !activeParcelId || !estado || !foto}
+          className="flex-1 py-2.5 rounded-lg bg-[#38bdf8]/20 border border-[#38bdf8]/40 text-[11px] font-black uppercase tracking-widest text-[#38bdf8] hover:bg-[#38bdf8]/30 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
         >
-          {saving && <span className="w-3.5 h-3.5 border-2 border-[#6d9b7d]/30 border-t-[#6d9b7d] rounded-full animate-spin" />}
+          {saving && <span className="w-3.5 h-3.5 border-2 border-[#38bdf8]/30 border-t-[#38bdf8] rounded-full animate-spin" />}
           {saving ? 'Guardando...' : 'Guardar'}
         </button>
       </div>

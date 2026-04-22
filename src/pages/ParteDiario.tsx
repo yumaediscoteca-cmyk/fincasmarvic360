@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, ChevronDown, FileText, LogOut,
+  ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Plus,
+  FileText, Camera, Building2, Wrench, User, Truck, LogOut,
 } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
 import type { Tables } from '@/integrations/supabase/types'
@@ -9,36 +10,87 @@ import {
   usePartePorFecha,
   useEnsureParteHoy,
   useEstadosFinca,
+  useAddEstadoFinca,
   useTrabajos,
+  useAddTrabajo,
   usePersonales,
+  useAddPersonal,
   useResiduos,
+  useAddResiduos,
   useDeleteEntradaParte,
+  useGanaderos,
+  useAddGanadero,
+  useCerrarJornada,
 } from '@/hooks/useParteDiario'
-import { useCerrarJornada } from '@/hooks/useTrabajos'
-import { NavegadorFechas } from '@/components/ParteDiario/NavegadorFechas'
-import { FormEstadoFinca } from '@/components/ParteDiario/FormEstadoFinca'
-import { FormTrabajosRealizado } from '@/components/ParteDiario/FormTrabajosRealizado'
-import { FormAnotacionesLibres } from '@/components/ParteDiario/FormAnotacionesLibres'
-import { FormLogisticaResiduos } from '@/components/ParteDiario/FormLogisticaResiduos'
-import { formatHora } from '@/utils/dateFormat'
-import {
-  loadPdfImage,
-  type PdfImage,
-  paintMarvicLetterhead,
-  applyCorporateFootersAllPages,
-  PDF_BRAND,
-  registerMontserratLetterheadFonts,
-  downloadJsPdf,
-} from '@/utils/pdfUtils'
-import { ejecutarCosechaDiaria } from '@/utils/liaCosechadora'
+import { usePersonal } from '@/hooks/usePersonal'
+import { SelectWithOther, AudioInput, RecordActions } from '@/components/base'
+import { FINCAS_NOMBRES as FINCAS } from '@/constants/farms'
+import { TIPOS_TRABAJO } from '@/constants/tiposTrabajo'
 import { ESTADOS_PARCELA } from '@/constants/estadosParcela'
-import { toast } from '@/hooks/use-toast'
-import { PageShell } from '@/components/layout/PageShell'
+import { uploadImage } from '@/utils/uploadImage'
+import { formatHora, formatFechaNav } from '@/utils/dateFormat'
+import { loadPdfImage, type PdfImage } from '@/utils/pdfUtils'
+import { useTheme } from '@/context/ThemeContext'
 import jsPDF from 'jspdf'
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
 const HOY = new Date().toISOString().split('T')[0]
+
+// ─── Tipos de formulario ──────────────────────────────────────────────────────
+
+type FormA = {
+  finca: string; parcel_id: string; estado: string
+  num_operarios: string; nombres_operarios: string
+  foto1: File | null; foto2: File | null; notas: string
+}
+type FormB = {
+  tipo_trabajo: string; finca: string; ambito: string; parcelas: string
+  num_operarios: string; nombres_operarios: string
+  hora_inicio: string; hora_fin: string
+  foto1: File | null; foto2: File | null; notas: string
+}
+type FormC = { texto: string; con_quien: string; donde: string; foto: File | null }
+type FormD = {
+  personal_id: string; nombre_conductor: string
+  hora_salida_nave: string
+  ganadero_id: string; nombre_ganadero: string; nuevo_ganadero: string
+  hora_llegada_ganadero: string
+  hora_regreso_nave: string; notas_descarga: string
+  foto: File | null
+}
+
+const initA = (): FormA => ({
+  finca: '', parcel_id: '', estado: '', num_operarios: '',
+  nombres_operarios: '', foto1: null, foto2: null, notas: '',
+})
+const initB = (): FormB => ({
+  tipo_trabajo: '', finca: '', ambito: 'finca_completa', parcelas: '',
+  num_operarios: '', nombres_operarios: '',
+  hora_inicio: '', hora_fin: '', foto1: null, foto2: null, notas: '',
+})
+const initC = (): FormC => ({ texto: '', con_quien: '', donde: '', foto: null })
+const initD = (): FormD => ({
+  personal_id: '', nombre_conductor: '',
+  hora_salida_nave: '',
+  ganadero_id: '', nombre_ganadero: '', nuevo_ganadero: '',
+  hora_llegada_ganadero: '',
+  hora_regreso_nave: '', notas_descarga: '',
+  foto: null,
+})
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function timeToISO(fecha: string, time: string): string | null {
+  if (!time) return null
+  return `${fecha}T${time}:00`
+}
+
+async function uploadFoto(file: File, parteId: string): Promise<string | null> {
+  const ext = file.name.split('.').pop() ?? 'jpg'
+  const path = `${parteId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  return uploadImage(file, 'partes-images', path)
+}
 
 // ─── Fecha cabecera ejecutiva: "miércoles, 25 de marzo de 2026" ───────────────
 
@@ -134,14 +186,13 @@ function collectNombresPersonal(entradas: EntradaPDF[]): string {
  * Motor de formato corporativo ejecutivo para todos los PDFs del Parte Diario.
  * Cabecera por página, pie con firma y numeración; contenido sobre fondo blanco.
  */
-async function generarPDFCorporativo(
+function generarPDFCorporativo(
   tituloInforme: string,
   subtituloInforme: string,
   fechaISO: string,
   logoData: PdfImage | null,
 ) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  await registerMontserratLetterheadFonts(doc)
   const M = 14
   const PAGE_W = 210
   const PAGE_H = 297
@@ -153,14 +204,39 @@ async function generarPDFCorporativo(
   let y = M
   const fechaLarga = formatFechaEjecutiva(fechaISO)
 
-  function drawHeader() {
+  function drawPageBackground() {
     doc.setFillColor(255, 255, 255)
     doc.rect(0, 0, PAGE_W, PAGE_H, 'F')
-    y = paintMarvicLetterhead(doc, logoData, {
-      titulo: tituloInforme,
-      subtitulo: subtituloInforme,
-      fechaTexto: fechaLarga,
-    })
+  }
+
+  function drawHeader() {
+    drawPageBackground()
+    const top = M
+    let bandBottom = top
+    if (logoData) {
+      const logoW = 45
+      const logoH = Math.min(logoW * (logoData.natH / logoData.natW), 22)
+      doc.setFillColor(255, 255, 255)
+      doc.rect(M - 0.5, top - 0.5, logoW + 1, logoH + 1, 'F')
+      doc.addImage(logoData.b64, 'JPEG', M, top, logoW, logoH)
+      bandBottom = Math.max(bandBottom, top + logoH)
+    }
+    const right = PAGE_W - M
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(14)
+    doc.setTextColor(0, 0, 0)
+    doc.text(tituloInforme.toUpperCase(), right, top + 4, { align: 'right' })
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(100, 116, 139)
+    doc.text(subtituloInforme, right, top + 9, { align: 'right' })
+    doc.text(fechaLarga, right, top + 14, { align: 'right' })
+    bandBottom = Math.max(bandBottom, top + 16)
+    y = bandBottom + 2
+    doc.setDrawColor(200, 200, 200)
+    doc.setLineWidth(0.35)
+    doc.line(M, y, PAGE_W - M, y)
+    y += 5
   }
 
   function checkPage(need: number) {
@@ -181,16 +257,16 @@ async function generarPDFCorporativo(
       const valueLines = doc.splitTextToSize(row.value, TW - 56) as string[]
       const linesH = Math.max(1, valueLines.length) * 4.2 + 2
       checkPage(linesH + rowH)
-      const fill = stripe % 2 === 0 ? [255, 255, 255] : [...PDF_BRAND.rowAlt]
+      const fill = stripe % 2 === 0 ? [255, 255, 255] : [248, 250, 252]
       doc.setFillColor(fill[0], fill[1], fill[2])
       doc.rect(M, y - 4.5, TW, Math.max(rowH, linesH + 1), 'F')
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
-      doc.setTextColor(...PDF_BRAND.muted)
+      doc.setTextColor(100, 116, 139)
       doc.text(row.label, labelX, y)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(10)
-      doc.setTextColor(...PDF_BRAND.green)
+      doc.setTextColor(0, 0, 0)
       let yy = y
       valueLines.forEach((line, i) => {
         if (i > 0) {
@@ -208,7 +284,7 @@ async function generarPDFCorporativo(
 
   function addSectionHeader(letra: string, titulo: string, horario: string) {
     checkPage(10)
-    doc.setFillColor(...PDF_BRAND.green)
+    doc.setFillColor(30, 41, 59)
     doc.rect(M, y, TW, 7, 'F')
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
@@ -216,7 +292,7 @@ async function generarPDFCorporativo(
     const extra = horario ? `  ${horario}` : ''
     doc.text(`[${letra}] ${titulo.toUpperCase()}${extra}`, M + 2, y + 4.8)
     y += 9
-    doc.setTextColor(...PDF_BRAND.green)
+    doc.setTextColor(0, 0, 0)
   }
 
   let pairStripe = 0
@@ -230,16 +306,16 @@ async function generarPDFCorporativo(
     const lines = doc.splitTextToSize(String(value), TW - 58) as string[]
     const blockH = 5 + lines.length * 4
     checkPage(blockH + 2)
-    const fill = pairStripe % 2 === 0 ? [255, 255, 255] : [...PDF_BRAND.rowAlt]
+    const fill = pairStripe % 2 === 0 ? [255, 255, 255] : [248, 250, 252]
     doc.setFillColor(fill[0], fill[1], fill[2])
     doc.rect(M, y - 4, TW, blockH + 1, 'F')
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
-    doc.setTextColor(...PDF_BRAND.muted)
+    doc.setTextColor(100, 116, 139)
     doc.text(label, M + 2, y)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10)
-    doc.setTextColor(...PDF_BRAND.green)
+    doc.setTextColor(0, 0, 0)
     let yy = y
     lines.forEach((ln, i) => {
       if (i > 0) {
@@ -265,7 +341,7 @@ async function generarPDFCorporativo(
     if (pie) {
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(8)
-      doc.setTextColor(...PDF_BRAND.muted)
+      doc.setTextColor(100, 116, 139)
       const capLines = doc.splitTextToSize(pie, TW) as string[]
       capLines.forEach(ln => {
         checkPage(4)
@@ -285,7 +361,7 @@ async function generarPDFCorporativo(
     const c2 = M + 24
     const c3 = M + 138
     const headerH = 6
-    doc.setFillColor(...PDF_BRAND.green)
+    doc.setFillColor(30, 41, 59)
     doc.rect(M, y, TW, headerH, 'F')
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
@@ -299,14 +375,14 @@ async function generarPDFCorporativo(
       const actLines = doc.splitTextToSize(f.actividad, 108) as string[]
       const rowH = Math.max(6, actLines.length * 3.8 + 2)
       checkPage(rowH + 1)
-      const fill = stripe % 2 === 0 ? [255, 255, 255] : [...PDF_BRAND.rowAlt]
+      const fill = stripe % 2 === 0 ? [255, 255, 255] : [248, 250, 252]
       doc.setFillColor(fill[0], fill[1], fill[2])
       doc.rect(M, y - 1, TW, rowH, 'F')
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
-      doc.setTextColor(...PDF_BRAND.muted)
+      doc.setTextColor(100, 116, 139)
       doc.text(f.hora, c1, y + 3.5)
-      doc.setTextColor(...PDF_BRAND.green)
+      doc.setTextColor(0, 0, 0)
       let yy = y + 3.5
       actLines.forEach(ln => {
         doc.text(ln, c2, yy)
@@ -316,14 +392,14 @@ async function generarPDFCorporativo(
       if (f.estado === 'INCIDENCIA') {
         doc.setTextColor(239, 68, 68)
       } else {
-        doc.setTextColor(...PDF_BRAND.green)
+        doc.setTextColor(0, 0, 0)
       }
       doc.text(f.estado, c3, y + 3.5)
       y += rowH
       stripe++
     }
     y += 3
-    doc.setTextColor(...PDF_BRAND.green)
+    doc.setTextColor(0, 0, 0)
   }
 
   /** Tabla planning: Nº | TAREA | RESPONSABLE | PRIORIDAD */
@@ -336,7 +412,7 @@ async function generarPDFCorporativo(
     const colR = M + 95
     const colP = M + 155
     const headerH = 6
-    doc.setFillColor(...PDF_BRAND.green)
+    doc.setFillColor(30, 41, 59)
     doc.rect(M, y, TW, headerH, 'F')
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
@@ -351,12 +427,12 @@ async function generarPDFCorporativo(
       const tLines = doc.splitTextToSize(f.tarea, 75) as string[]
       const rowH = Math.max(6, tLines.length * 3.8 + 2)
       checkPage(rowH + 1)
-      const fill = stripe % 2 === 0 ? [255, 255, 255] : [...PDF_BRAND.rowAlt]
+      const fill = stripe % 2 === 0 ? [255, 255, 255] : [248, 250, 252]
       doc.setFillColor(fill[0], fill[1], fill[2])
       doc.rect(M, y - 1, TW, rowH, 'F')
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
-      doc.setTextColor(...PDF_BRAND.green)
+      doc.setTextColor(0, 0, 0)
       doc.text(String(f.num), colN, y + 3.5)
       let yy = y + 3.5
       tLines.forEach(ln => {
@@ -368,21 +444,21 @@ async function generarPDFCorporativo(
       if (f.prioridad === 'ALTA') {
         doc.setTextColor(239, 68, 68)
       } else {
-        doc.setTextColor(...PDF_BRAND.muted)
+        doc.setTextColor(51, 65, 85)
       }
       doc.text(f.prioridad, colP, y + 3.5)
       y += rowH
       stripe++
     }
     y += 3
-    doc.setTextColor(...PDF_BRAND.green)
+    doc.setTextColor(0, 0, 0)
   }
 
   function addMutedParagraph(texto: string) {
     checkPage(12)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
-    doc.setTextColor(...PDF_BRAND.muted)
+    doc.setTextColor(100, 116, 139)
     const lines = doc.splitTextToSize(texto, TW) as string[]
     lines.forEach(ln => {
       checkPage(5)
@@ -393,8 +469,23 @@ async function generarPDFCorporativo(
   }
 
   function finalize(filename: string) {
-    applyCorporateFootersAllPages(doc, new Date(fechaISO + 'T12:00:00'))
-    downloadJsPdf(doc, filename)
+    const total = doc.getNumberOfPages()
+    const pieFecha = new Date(fechaISO + 'T12:00:00').toLocaleDateString('es-ES', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    })
+    for (let i = 1; i <= total; i++) {
+      doc.setPage(i)
+      doc.setDrawColor(200, 200, 200)
+      doc.setLineWidth(0.25)
+      doc.line(M, FOOTER_LINE_Y, PAGE_W - M, FOOTER_LINE_Y)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(71, 85, 105)
+      const left = `Firmado: JuanPe — Dirección Técnica de Campo  |  Agrícola Marvic 360  |  ${pieFecha}`
+      doc.text(left, M, FOOTER_TEXT_Y)
+      doc.text(`Página ${i} de ${total}`, PAGE_W - M, FOOTER_TEXT_Y, { align: 'right' })
+    }
+    doc.save(filename)
   }
 
   drawHeader()
@@ -418,13 +509,25 @@ async function generarPDFCorporativo(
 
 export default function ParteDiario() {
   const navigate = useNavigate()
+  const { theme } = useTheme()
   const pdfMenuRef = useRef<HTMLDivElement>(null)
   const [fecha, setFecha]           = useState(HOY)
+  const [modal, setModal]           = useState<'A' | 'B' | 'C' | 'D' | null>(null)
+  const [saving, setSaving]         = useState(false)
   const [generandoPdf, setGenPdf]   = useState(false)
   const [pdfMenuOpen, setPdfMenuOpen] = useState(false)
+  const [formA, setFormA]           = useState<FormA>(initA())
+  const [formB, setFormB]           = useState<FormB>(initB())
+  const [formC, setFormC]           = useState<FormC>(initC())
+  const [formD, setFormD]           = useState<FormD>(initD())
 
   const esHoy = fecha === HOY
 
+  // Edit state per block
+  const [editIdA, setEditIdA] = useState<string | null>(null)
+  const [editIdB, setEditIdB] = useState<string | null>(null)
+  const [editIdC, setEditIdC] = useState<string | null>(null)
+  const [editIdD, setEditIdD] = useState<string | null>(null)
   // Cerrar jornada
   const [showCierre, setShowCierre] = useState(false)
   const [cierreResultado, setCierreResultado] = useState<{
@@ -440,8 +543,16 @@ export default function ParteDiario() {
   const { data: personales    = [] } = usePersonales(parteId)
   const { data: residuos      = [] } = useResiduos(parteId)
 
+  const addEstadoFinca = useAddEstadoFinca()
+  const addTrabajo     = useAddTrabajo()
+  const addPersonal    = useAddPersonal()
+  const addResiduos    = useAddResiduos()
   const deleteEntrada  = useDeleteEntradaParte()
+  const addGanadero    = useAddGanadero()
   const cerrarJornada  = useCerrarJornada()
+
+  const { data: conductoresCamion = [] } = usePersonal('conductor_camion')
+  const { data: ganaderos          = [] } = useGanaderos()
 
   // Asegurar parte del día actual al montar y al cambiar a hoy
   useEffect(() => {
@@ -475,18 +586,193 @@ export default function ParteDiario() {
     if (sig <= HOY) setFecha(sig)
   }
 
+  // ── Abrir modales en modo edición ──
+  function editarA(e: Tables<'parte_estado_finca'>) {
+    setEditIdA(e.id)
+    setFormA({
+      finca: e.finca ?? '', parcel_id: e.parcel_id ?? '', estado: e.estado ?? '',
+      num_operarios: e.num_operarios?.toString() ?? '',
+      nombres_operarios: e.nombres_operarios ?? '',
+      foto1: null, foto2: null, notas: e.notas ?? '',
+    })
+    setModal('A')
+  }
+  function editarB(e: Tables<'parte_trabajo'>) {
+    setEditIdB(e.id)
+    setFormB({
+      tipo_trabajo: e.tipo_trabajo ?? '', finca: e.finca ?? '',
+      ambito: e.ambito ?? 'finca_completa', parcelas: e.parcelas?.join(', ') ?? '',
+      num_operarios: e.num_operarios?.toString() ?? '',
+      nombres_operarios: e.nombres_operarios ?? '',
+      hora_inicio: e.hora_inicio ? new Date(e.hora_inicio).toTimeString().slice(0,5) : '',
+      hora_fin: e.hora_fin ? new Date(e.hora_fin).toTimeString().slice(0,5) : '',
+      foto1: null, foto2: null, notas: e.notas ?? '',
+    })
+    setModal('B')
+  }
+  function editarC(e: Tables<'parte_personal'>) {
+    setEditIdC(e.id)
+    setFormC({ texto: e.texto ?? '', con_quien: e.con_quien ?? '', donde: e.donde ?? '', foto: null })
+    setModal('C')
+  }
+  function editarD(e: Tables<'parte_residuos_vegetales'>) {
+    setEditIdD(e.id)
+    setFormD({
+      personal_id: e.personal_id ?? '', nombre_conductor: e.nombre_conductor ?? '',
+      hora_salida_nave: e.hora_salida_nave ? new Date(e.hora_salida_nave).toTimeString().slice(0,5) : '',
+      ganadero_id: e.ganadero_id ?? '', nombre_ganadero: e.nombre_ganadero ?? '', nuevo_ganadero: '',
+      hora_llegada_ganadero: e.hora_llegada_ganadero ? new Date(e.hora_llegada_ganadero).toTimeString().slice(0,5) : '',
+      hora_regreso_nave: e.hora_regreso_nave ? new Date(e.hora_regreso_nave).toTimeString().slice(0,5) : '',
+      notas_descarga: e.notas_descarga ?? '', foto: null,
+    })
+    setModal('D')
+  }
+
   // ── Cerrar jornada ──
   async function handleCerrarJornada() {
     if (!parteId || !confirm('¿Cerrar la jornada de hoy? Se marcarán trabajos ejecutados/pendientes y se arrastrarán a mañana.')) return
     try {
-      const res = await cerrarJornada.mutateAsync(fecha)
+      const res = await cerrarJornada.mutateAsync({ fecha, parteId })
       setCierreResultado(res as { ejecutados: number; pendientes: number; arrastrados: number; incidenciasArrastradas: number })
       setShowCierre(true)
-      // Ejecutar cosechadora LIA sin bloquear
-      ejecutarCosechaDiaria(fecha)
     } catch (e) {
       alert('Error al cerrar jornada: ' + (e instanceof Error ? e.message : String(e)))
     }
+  }
+
+  // ── Submit Modal A ──
+  async function submitA() {
+    if (!parteId || !formA.finca) return
+    setSaving(true)
+    try {
+      const numOp = parseInt(formA.num_operarios)
+      const patch = {
+        parte_id: parteId,
+        finca: formA.finca,
+        parcel_id:         formA.parcel_id         || null,
+        estado:            formA.estado             || null,
+        num_operarios:     isNaN(numOp) ? null : numOp,
+        nombres_operarios: formA.nombres_operarios  || null,
+        notas: formA.notas || null,
+      }
+      if (editIdA) {
+        // Update — solo campos sin foto
+        await supabase.from('parte_estado_finca').update(patch).eq('id', editIdA)
+        if (formA.foto1) {
+          const url = await uploadFoto(formA.foto1, parteId)
+          if (url) await supabase.from('parte_estado_finca').update({ foto_url: url }).eq('id', editIdA)
+        }
+        if (formA.foto2) {
+          const url = await uploadFoto(formA.foto2, parteId)
+          if (url) await supabase.from('parte_estado_finca').update({ foto_url_2: url }).eq('id', editIdA)
+        }
+      } else {
+        const foto_url   = formA.foto1 ? await uploadFoto(formA.foto1, parteId) : null
+        const foto_url_2 = formA.foto2 ? await uploadFoto(formA.foto2, parteId) : null
+        await addEstadoFinca.mutateAsync({ ...patch, foto_url, foto_url_2 })
+      }
+      setModal(null); setFormA(initA()); setEditIdA(null)
+    } finally { setSaving(false) }
+  }
+
+  // ── Submit Modal B ──
+  async function submitB() {
+    if (!parteId || !formB.tipo_trabajo) return
+    setSaving(true)
+    try {
+      const numOp = parseInt(formB.num_operarios)
+      const parcelasArr = formB.ambito === 'parcelas_concretas' && formB.parcelas
+        ? formB.parcelas.split(',').map(s => s.trim()).filter(Boolean)
+        : null
+      const patch = {
+        parte_id: parteId,
+        tipo_trabajo: formB.tipo_trabajo,
+        finca:  formB.finca  || null,
+        ambito: formB.ambito || null,
+        parcelas: parcelasArr,
+        num_operarios:     isNaN(numOp) ? null : numOp,
+        nombres_operarios: formB.nombres_operarios || null,
+        hora_inicio: timeToISO(fecha, formB.hora_inicio),
+        hora_fin:    timeToISO(fecha, formB.hora_fin),
+        notas: formB.notas || null,
+      }
+      if (editIdB) {
+        await supabase.from('parte_trabajo').update(patch).eq('id', editIdB)
+        if (formB.foto1) { const u = await uploadFoto(formB.foto1, parteId); if (u) await supabase.from('parte_trabajo').update({ foto_url: u }).eq('id', editIdB) }
+        if (formB.foto2) { const u = await uploadFoto(formB.foto2, parteId); if (u) await supabase.from('parte_trabajo').update({ foto_url_2: u }).eq('id', editIdB) }
+      } else {
+        const foto_url   = formB.foto1 ? await uploadFoto(formB.foto1, parteId) : null
+        const foto_url_2 = formB.foto2 ? await uploadFoto(formB.foto2, parteId) : null
+        await addTrabajo.mutateAsync({ ...patch, foto_url, foto_url_2 })
+      }
+      setModal(null); setFormB(initB()); setEditIdB(null)
+    } finally { setSaving(false) }
+  }
+
+  // ── Submit Modal C ──
+  async function submitC() {
+    if (!parteId || !formC.texto.trim()) return
+    setSaving(true)
+    try {
+      const patch = {
+        parte_id:  parteId,
+        texto:     formC.texto,
+        con_quien: formC.con_quien || null,
+        donde:     formC.donde     || null,
+      }
+      if (editIdC) {
+        await supabase.from('parte_personal').update(patch).eq('id', editIdC)
+        if (formC.foto) { const u = await uploadFoto(formC.foto, parteId); if (u) await supabase.from('parte_personal').update({ foto_url: u }).eq('id', editIdC) }
+      } else {
+        const foto_url = formC.foto ? await uploadFoto(formC.foto, parteId) : null
+        await addPersonal.mutateAsync({ ...patch, foto_url })
+      }
+      setModal(null); setFormC(initC()); setEditIdC(null)
+    } finally { setSaving(false) }
+  }
+
+  // ── Submit Modal D ──
+  async function submitD() {
+    if (!parteId) return
+    setSaving(true)
+    try {
+      // Si nuevo ganadero, crear primero
+      let ganaderoId = formD.ganadero_id ?? null
+      if (!ganaderoId && formD.nuevo_ganadero.trim()) {
+        const nuevo = await addGanadero.mutateAsync(formD.nuevo_ganadero.trim())
+        ganaderoId = nuevo.id
+      }
+
+      // Subir foto si existe
+      let foto_url: string | null = null
+      if (formD.foto && parteId) {
+        foto_url = await uploadFoto(formD.foto, parteId)
+      }
+
+      // Nombre conductor desde selector
+      const nombreConductor = formD.personal_id
+        ? ((conductoresCamion.find(c => c.id === formD.personal_id)?.nombre ?? formD.nombre_conductor) || null)
+        : (formD.nombre_conductor || null)
+
+      // Nombre ganadero para PDF/texto
+      const nombreGanadero = ganaderoId
+        ? ((ganaderos.find(g => g.id === ganaderoId)?.nombre ?? formD.nuevo_ganadero) || null)
+        : (formD.nombre_ganadero || null)
+
+      await addResiduos.mutateAsync({
+        parte_id:               parteId,
+        nombre_conductor:       nombreConductor,
+        hora_salida_nave:       timeToISO(fecha, formD.hora_salida_nave),
+        nombre_ganadero:        nombreGanadero,
+        hora_llegada_ganadero:  timeToISO(fecha, formD.hora_llegada_ganadero),
+        hora_regreso_nave:      timeToISO(fecha, formD.hora_regreso_nave),
+        notas_descarga:         formD.notas_descarga || null,
+        foto_url,
+        personal_id:            formD.personal_id ?? null,
+        ganadero_id:            ganaderoId,
+      })
+      setModal(null); setFormD(initD()); setEditIdD(null)
+    } finally { setSaving(false) }
   }
 
   // ── Eliminar entrada ──
@@ -532,7 +818,7 @@ export default function ParteDiario() {
     setGenPdf(true)
     try {
       const logoData = await loadPdfImage(`${window.location.origin}/MARVIC_logo.png`)
-      const pdf = await generarPDFCorporativo(
+      const pdf = generarPDFCorporativo(
         'PARTE DIARIO',
         'Informe integral de la jornada',
         fecha,
@@ -609,14 +895,6 @@ export default function ParteDiario() {
       }
 
       pdf.finalize(`Parte_Diario_${fecha}.pdf`)
-      toast({ title: 'PDF generado', description: 'Si no ves la descarga, revisa la carpeta de descargas o bloqueos del navegador.' })
-    } catch (e) {
-      console.error('PDF parte completo:', e)
-      toast({
-        title: 'Error al generar el PDF',
-        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
-        variant: 'destructive',
-      })
     } finally {
       setGenPdf(false)
     }
@@ -627,7 +905,7 @@ export default function ParteDiario() {
     setGenPdf(true)
     try {
       const logoData = await loadPdfImage(`${window.location.origin}/MARVIC_logo.png`)
-      const pdf = await generarPDFCorporativo(
+      const pdf = generarPDFCorporativo(
         'INCIDENCIAS DE JORNADA',
         'Consolidado de incidencias del día',
         fecha,
@@ -664,14 +942,6 @@ export default function ParteDiario() {
       }
 
       pdf.finalize(`Incidencias_${fecha}.pdf`)
-      toast({ title: 'PDF generado', description: 'Incidencias descargadas.' })
-    } catch (e) {
-      console.error('PDF incidencias:', e)
-      toast({
-        title: 'Error al generar el PDF',
-        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
-        variant: 'destructive',
-      })
     } finally {
       setGenPdf(false)
     }
@@ -682,7 +952,7 @@ export default function ParteDiario() {
     setGenPdf(true)
     try {
       const logoData = await loadPdfImage(`${window.location.origin}/MARVIC_logo.png`)
-      const pdf = await generarPDFCorporativo(
+      const pdf = generarPDFCorporativo(
         'RESIDUOS VEGETALES',
         'Registro de movimientos del día',
         fecha,
@@ -707,14 +977,6 @@ export default function ParteDiario() {
         await pdf.addPhoto120(e.foto_url, 'Fotografía — residuos vegetales')
       }
       pdf.finalize(`Residuos_${fecha}.pdf`)
-      toast({ title: 'PDF generado', description: 'Residuos descargados.' })
-    } catch (e) {
-      console.error('PDF residuos:', e)
-      toast({
-        title: 'Error al generar el PDF',
-        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
-        variant: 'destructive',
-      })
     } finally {
       setGenPdf(false)
     }
@@ -725,7 +987,7 @@ export default function ParteDiario() {
     setGenPdf(true)
     try {
       const logoData = await loadPdfImage(`${window.location.origin}/MARVIC_logo.png`)
-      const pdf = await generarPDFCorporativo(
+      const pdf = generarPDFCorporativo(
         'PARTE PERSONAL JUANPE',
         'Registro cronológico de actividades',
         fecha,
@@ -752,14 +1014,6 @@ export default function ParteDiario() {
         }
       }
       pdf.finalize(`Parte_Personal_${fecha}.pdf`)
-      toast({ title: 'PDF generado', description: 'Parte personal descargado.' })
-    } catch (e) {
-      console.error('PDF parte personal:', e)
-      toast({
-        title: 'Error al generar el PDF',
-        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
-        variant: 'destructive',
-      })
     } finally {
       setGenPdf(false)
     }
@@ -771,7 +1025,7 @@ export default function ParteDiario() {
     try {
       const logoData = await loadPdfImage(`${window.location.origin}/MARVIC_logo.png`)
       const { manana, tareas } = await fetchPlanningManana(fecha)
-      const pdf = await generarPDFCorporativo(
+      const pdf = generarPDFCorporativo(
         'PLANNING OPERATIVO',
         `Tareas previstas — ${formatFechaEjecutiva(manana)}`,
         manana,
@@ -792,14 +1046,6 @@ export default function ParteDiario() {
         )
       }
       pdf.finalize(`Planning_${manana}.pdf`)
-      toast({ title: 'PDF generado', description: 'Planning descargado.' })
-    } catch (e) {
-      console.error('PDF planning:', e)
-      toast({
-        title: 'Error al generar el PDF',
-        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
-        variant: 'destructive',
-      })
     } finally {
       setGenPdf(false)
     }
@@ -818,47 +1064,126 @@ export default function ParteDiario() {
   // RENDER
   // ─────────────────────────────────────────────────────────────────
 
+  // Pequeño componente de fila de entrada para reutilizar
+  const EntradaRow = ({
+    hora, titulo, subtitulo, hasPhoto, tabla, id, onEdit,
+  }: {
+    hora: string; titulo: string; subtitulo?: string
+    hasPhoto?: boolean; tabla: string; id: string
+    onEdit?: () => void
+  }) => (
+    <div className="px-4 py-3 flex items-start justify-between gap-2 hover:bg-white/5 transition-colors">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-[#38bdf8] shrink-0">{hora}</span>
+          {hasPhoto && <Camera className="w-3 h-3 text-slate-500 shrink-0" />}
+        </div>
+        <p className="text-sm text-white font-medium truncate mt-0.5">{titulo}</p>
+        {subtitulo && <p className="text-[11px] text-slate-400 truncate mt-0.5">{subtitulo}</p>}
+      </div>
+      {esHoy && parteId && (
+        <RecordActions
+          onEdit={onEdit}
+          onDelete={() => eliminar(tabla, id)}
+        />
+      )}
+    </div>
+  )
+
+  const EmptyState = ({ texto }: { texto: string }) => (
+    <div className="px-4 py-8 text-center">
+      <p className="text-[11px] text-slate-600 uppercase tracking-widest">{texto}</p>
+    </div>
+  )
+
+  // ─── Bloque card ───
+  const BloqueCard = ({
+    letra, icono: Icon, titulo, color, children, onAdd,
+  }: {
+    letra: string; icono: React.ElementType; titulo: string
+    color: string; children: React.ReactNode; onAdd?: () => void
+  }) => (
+    <div className="bg-slate-900/60 border border-white/10 rounded-xl overflow-hidden">
+      <div className="bg-slate-800/60 px-4 py-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${color}`}>{letra}</span>
+          <Icon className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-white">{titulo}</span>
+        </div>
+        {esHoy && parteId && onAdd && (
+          <button
+            onClick={onAdd}
+            className="flex items-center gap-1 px-2.5 py-1 rounded border border-[#38bdf8]/30 bg-[#38bdf8]/5 hover:bg-[#38bdf8]/15 text-[#38bdf8] text-[10px] font-black uppercase tracking-widest transition-all"
+          >
+            <Plus className="w-3 h-3" /> Añadir
+          </button>
+        )}
+      </div>
+      <div className="divide-y divide-white/5">{children}</div>
+    </div>
+  )
+
   return (
-    <PageShell.Root>
-      <PageShell.Header className="pl-14 pr-4 py-2.5 flex flex-col gap-2 max-md:items-stretch md:flex-row md:flex-wrap md:items-center md:gap-3">
+    <div className="min-h-screen bg-[#020617] text-white flex flex-col">
+
+      {/* ── CABECERA ── */}
+      <header className="bg-slate-900/80 border-b border-white/10 pl-14 pr-4 py-2.5 flex items-center gap-3 flex-wrap">
         <button
-          type="button"
           onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="text-[10px] font-black uppercase tracking-widest">Volver</span>
         </button>
 
-        <div className="w-px h-4 bg-border" aria-hidden />
+        <div className="w-px h-4 bg-white/10" />
 
-        <span className="text-[10px] font-black uppercase tracking-widest text-[#6d9b7d]">
+        <span className="text-[10px] font-black uppercase tracking-widest text-[#38bdf8]">
           Parte Diario
         </span>
 
-        <NavegadorFechas
-          fecha={fecha}
-          esHoy={esHoy}
-          onAnterior={irAnterior}
-          onSiguiente={irSiguiente}
-        />
+        <div className="flex items-center gap-1 ml-auto">
+          <button
+            onClick={irAnterior}
+            className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-[11px] font-bold text-white min-w-[140px] text-center">
+            {formatFechaNav(fecha)}
+            {esHoy && <span className="ml-1 text-[9px] text-[#38bdf8] font-black">HOY</span>}
+          </span>
+          <button
+            onClick={irSiguiente}
+            disabled={esHoy}
+            className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-30"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
 
         <div className="relative" ref={pdfMenuRef}>
           <button
             type="button"
             onClick={() => setPdfMenuOpen(o => !o)}
             disabled={generandoPdf || !parteId}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#6d9b7d]/30 bg-[#6d9b7d]/5 hover:bg-[#6d9b7d]/15 text-[#6d9b7d] text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#38bdf8]/30 bg-[#38bdf8]/5 hover:bg-[#38bdf8]/15 text-[#38bdf8] text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
           >
             {generandoPdf
-              ? <span className="w-3.5 h-3.5 border-2 border-[#6d9b7d]/20 border-t-[#6d9b7d] rounded-full animate-spin" />
+              ? <span className="w-3.5 h-3.5 border-2 border-[#38bdf8]/20 border-t-[#38bdf8] rounded-full animate-spin" />
               : <FileText className="w-3.5 h-3.5" />
             }
             PDF
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${pdfMenuOpen ? 'rotate-180' : ''}`} />
           </button>
           {pdfMenuOpen && (
-            <div className="absolute right-0 top-full z-page-dropdown mt-1 min-w-[280px] rounded-lg border border-border bg-popover text-popover-foreground shadow-lg py-1">
+            <div
+              className={`absolute right-0 top-full z-[70] mt-1 min-w-[280px] rounded-lg border shadow-lg py-1 ${
+                theme === 'dark'
+                  ? 'border-slate-600 bg-slate-900 text-slate-100 shadow-black/40'
+                  : 'border-slate-200 bg-white text-slate-800 shadow-slate-400/20'
+              }`}
+            >
               {[
                 { k: 1 as const, label: 'Parte completo del día' },
                 { k: 2 as const, label: 'Solo incidencias de la jornada' },
@@ -871,7 +1196,11 @@ export default function ParteDiario() {
                   type="button"
                   disabled={generandoPdf}
                   onClick={() => onElegirOpcionPdf(k)}
-                  className="w-full px-3 py-2.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                  className={`w-full px-3 py-2.5 text-left text-xs font-medium transition-colors disabled:opacity-50 ${
+                    theme === 'dark'
+                      ? 'hover:bg-slate-800 text-slate-200'
+                      : 'hover:bg-slate-50 text-slate-800'
+                  }`}
                 >
                   {label}
                 </button>
@@ -885,116 +1214,715 @@ export default function ParteDiario() {
             type="button"
             onClick={handleCerrarJornada}
             disabled={cerrarJornada.isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-400 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
           >
             <LogOut className="w-3.5 h-3.5" />
             Cerrar jornada
           </button>
         )
       }
-      </PageShell.Header>
+      </header>
 
-      <PageShell.Main maxWidth="standard" className="px-4 py-4 space-y-3">
+      {/* ── CONTENIDO PRINCIPAL ── */}
+      <main className="flex-1 overflow-y-auto px-4 py-4 space-y-3 max-w-3xl w-full mx-auto">
 
         {cargando && (
           <div className="flex items-center justify-center py-16">
-            <span className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin" />
+            <span className="w-5 h-5 border-2 border-white/10 border-t-[#38bdf8] rounded-full animate-spin" />
           </div>
         )}
 
         {!cargando && !parteId && !esHoy && (
           <div className="text-center py-16">
-            <p className="text-muted-foreground text-sm">Sin parte registrado para esta fecha.</p>
+            <p className="text-slate-500 text-sm">Sin parte registrado para esta fecha.</p>
           </div>
         )}
 
         {/* BLOQUE A */}
-        <FormEstadoFinca
-          parteId={parteId}
-          estadosFinca={estadosFinca}
-          esHoy={esHoy}
-          onDelete={(id) => eliminar('parte_estado_finca', id)}
-        />
+        <BloqueCard
+          letra="A" icono={Building2} titulo="Estado Finca / Parcela"
+          color="text-sky-400 border-sky-400/40 bg-sky-400/5"
+          onAdd={() => { setFormA(initA()); setModal('A') }}
+        >
+          {estadosFinca.length === 0
+            ? <EmptyState texto="Sin estados registrados" />
+            : estadosFinca.map(e => (
+                <EntradaRow
+                  key={e.id}
+                  hora={formatHora(e.created_at)}
+                  titulo={`${e.finca}${e.parcel_id ? ` · ${e.parcel_id}` : ''}`}
+                  subtitulo={[
+                    ESTADOS_PARCELA.find(s => s.value === e.estado)?.label,
+                    e.num_operarios ? `${e.num_operarios} op.` : null,
+                    e.nombres_operarios,
+                  ].filter(Boolean).join(' · ')}
+                  hasPhoto={!!(e.foto_url || e.foto_url_2)}
+                  tabla="parte_estado_finca"
+                  id={e.id}
+                  onEdit={() => editarA(e)}
+                />
+              ))
+          }
+        </BloqueCard>
 
         {/* BLOQUE B */}
-        <FormTrabajosRealizado
-          parteId={parteId}
-          trabajos={trabajos}
-          fecha={fecha}
-          esHoy={esHoy}
-          onDelete={(id) => eliminar('parte_trabajo', id)}
-        />
+        <BloqueCard
+          letra="B" icono={Wrench} titulo="Trabajo en Curso"
+          color="text-amber-400 border-amber-400/40 bg-amber-400/5"
+          onAdd={() => { setFormB(initB()); setModal('B') }}
+        >
+          {trabajos.length === 0
+            ? <EmptyState texto="Sin trabajos registrados" />
+            : trabajos.map(e => (
+                <EntradaRow
+                  key={e.id}
+                  hora={e.hora_inicio
+                    ? `${formatHora(e.hora_inicio)}–${formatHora(e.hora_fin)}`
+                    : formatHora(e.created_at)}
+                  titulo={e.tipo_trabajo}
+                  subtitulo={[
+                    e.finca,
+                    e.ambito === 'finca_completa' ? 'Finca completa' : e.parcelas?.join(', '),
+                    e.num_operarios ? `${e.num_operarios} op.` : null,
+                  ].filter(Boolean).join(' · ')}
+                  hasPhoto={!!(e.foto_url || e.foto_url_2)}
+                  tabla="parte_trabajo"
+                  id={e.id}
+                  onEdit={() => editarB(e)}
+                />
+              ))
+          }
+        </BloqueCard>
 
         {/* BLOQUE C */}
-        <FormAnotacionesLibres
-          parteId={parteId}
-          personales={personales}
-          esHoy={esHoy}
-          onDelete={(id) => eliminar('parte_personal', id)}
-        />
+        <BloqueCard
+          letra="C" icono={User} titulo="Parte Personal JuanPe"
+          color="text-green-400 border-green-400/40 bg-green-400/5"
+          onAdd={() => { setFormC(initC()); setModal('C') }}
+        >
+          {personales.length === 0
+            ? <EmptyState texto="Sin anotaciones personales" />
+            : personales.map(e => (
+                <EntradaRow
+                  key={e.id}
+                  hora={formatHora(e.fecha_hora)}
+                  titulo={e.texto.length > 60 ? e.texto.slice(0, 60) + '…' : e.texto}
+                  subtitulo={[
+                    e.con_quien ? `Con: ${e.con_quien}` : null,
+                    e.donde     ? `En: ${e.donde}`      : null,
+                  ].filter(Boolean).join(' · ')}
+                  hasPhoto={!!e.foto_url}
+                  tabla="parte_personal"
+                  id={e.id}
+                  onEdit={() => editarC(e)}
+                />
+              ))
+          }
+        </BloqueCard>
 
         {/* BLOQUE D */}
-        <FormLogisticaResiduos
-          parteId={parteId}
-          residuos={residuos}
-          fecha={fecha}
-          esHoy={esHoy}
-          onDelete={(id) => eliminar('parte_residuos_vegetales', id)}
-        />
+        <BloqueCard
+          letra="D" icono={Truck} titulo="Residuos Vegetales"
+          color="text-orange-400 border-orange-400/40 bg-orange-400/5"
+          onAdd={() => { setFormD(initD()); setModal('D') }}
+        >
+          {residuos.length === 0
+            ? <EmptyState texto="Sin viajes de residuos registrados" />
+            : residuos.map(e => (
+                <EntradaRow
+                  key={e.id}
+                  hora={formatHora(e.hora_salida_nave ?? e.created_at)}
+                  titulo={[
+                    e.nombre_conductor ? `Conductor: ${e.nombre_conductor}` : 'Viaje residuos',
+                  ].join('')}
+                  subtitulo={[
+                    e.nombre_ganadero          ? `Ganadero: ${e.nombre_ganadero}` : null,
+                    e.hora_llegada_ganadero    ? `Llegada: ${formatHora(e.hora_llegada_ganadero)}` : null,
+                    e.hora_regreso_nave        ? `Regreso: ${formatHora(e.hora_regreso_nave)}` : null,
+                  ].filter(Boolean).join(' · ')}
+                  tabla="parte_residuos_vegetales"
+                  id={e.id}
+                  onEdit={() => editarD(e)}
+                />
+              ))
+          }
+        </BloqueCard>
 
-      </PageShell.Main>
+      </main>
 
       {/* ── BARRA INFERIOR ── */}
-      <footer className="bg-card/95 backdrop-blur-md border-t border-border px-4 py-1.5 flex items-center gap-4">
-        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+      <footer className="bg-slate-900/80 border-t border-white/10 px-4 py-1.5 flex items-center gap-4">
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
           Marvic 360 · Parte Diario
         </span>
-        <span className="text-[10px] text-muted-foreground/70">|</span>
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-[10px] text-slate-600">|</span>
+        <span className="text-[10px] text-slate-500">
           {estadosFinca.length + trabajos.length + personales.length + residuos.length} entradas
         </span>
-        <span className="text-[10px] font-mono text-muted-foreground ml-auto">
+        <span className="text-[10px] font-mono text-slate-600 ml-auto">
           {new Date().toTimeString().slice(0, 8)}
         </span>
       </footer>
 
       {/* ══════════════════════════════════════════════════════════ */}
+      {/* MODAL A — Estado Finca/Parcela                            */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {modal === 'A' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-slate-900 border-b border-white/10 px-5 py-3 flex items-center justify-between">
+              <span className="text-sm font-black uppercase tracking-widest text-sky-400">
+                A · Estado Finca / Parcela
+              </span>
+              <button onClick={() => setModal(null)} className="text-slate-500 hover:text-white text-lg leading-none">×</button>
+            </div>
+            <div className="p-5 space-y-4">
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Finca *</label>
+                <select
+                  value={formA.finca}
+                  onChange={e => setFormA(p => ({ ...p, finca: e.target.value }))}
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#38bdf8]/50 outline-none"
+                >
+                  <option value="">— Seleccionar finca —</option>
+                  {FINCAS.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Parcela / Sector (opcional)</label>
+                <input
+                  type="text"
+                  value={formA.parcel_id}
+                  onChange={e => setFormA(p => ({ ...p, parcel_id: e.target.value }))}
+                  placeholder="Ej: S-12, Sector Norte..."
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-[#38bdf8]/50 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Estado actual</label>
+                <select
+                  value={formA.estado}
+                  onChange={e => setFormA(p => ({ ...p, estado: e.target.value }))}
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#38bdf8]/50 outline-none"
+                >
+                  <option value="">— Sin especificar —</option>
+                  {ESTADOS_PARCELA.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Nº Operarios</label>
+                  <input
+                    type="number" min="0"
+                    value={formA.num_operarios}
+                    onChange={e => setFormA(p => ({ ...p, num_operarios: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#38bdf8]/50 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Nombres</label>
+                  <input
+                    type="text"
+                    value={formA.nombres_operarios}
+                    onChange={e => setFormA(p => ({ ...p, nombres_operarios: e.target.value }))}
+                    placeholder="Juan, Pedro..."
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-[#38bdf8]/50 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Notas</label>
+                <AudioInput
+                  value={formA.notas}
+                  onChange={v => setFormA(p => ({ ...p, notas: v }))}
+                  placeholder="Observaciones del estado..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {[1, 2].map(n => (
+                  <div key={n}>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">
+                      Foto {n} {n === 1 ? '(estado)' : '(opcional)'}
+                    </label>
+                    <label className="flex items-center gap-2 px-3 py-2.5 bg-slate-800 border border-white/10 rounded-lg cursor-pointer hover:border-[#38bdf8]/30 transition-colors">
+                      <Camera className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span className="text-[11px] text-slate-400 truncate">
+                        {n === 1
+                          ? (formA.foto1?.name ?? 'Capturar / Subir')
+                          : (formA.foto2?.name ?? 'Capturar / Subir')}
+                      </span>
+                      <input
+                        type="file" accept="image/*" capture="environment" className="sr-only"
+                        onChange={e => {
+                          const f = e.target.files?.[0] ?? null
+                          setFormA(p => n === 1 ? { ...p, foto1: f } : { ...p, foto2: f })
+                        }}
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setModal(null)}
+                  className="flex-1 py-2.5 rounded-lg border border-white/10 text-slate-400 text-sm hover:border-white/20 transition-colors"
+                >Cancelar</button>
+                <button
+                  onClick={submitA}
+                  disabled={saving || !formA.finca}
+                  className="flex-1 py-2.5 rounded-lg bg-[#38bdf8] text-[#020617] text-sm font-black hover:bg-sky-300 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {saving && <span className="w-3.5 h-3.5 border-2 border-[#020617]/20 border-t-[#020617] rounded-full animate-spin" />}
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* MODAL B — Trabajo en Curso                                */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {modal === 'B' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-slate-900 border-b border-white/10 px-5 py-3 flex items-center justify-between">
+              <span className="text-sm font-black uppercase tracking-widest text-amber-400">
+                B · Trabajo en Curso
+              </span>
+              <button onClick={() => setModal(null)} className="text-slate-500 hover:text-white text-lg leading-none">×</button>
+            </div>
+            <div className="p-5 space-y-4">
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Tipo de trabajo *</label>
+                <input
+                  list="tipos-trabajo"
+                  value={formB.tipo_trabajo}
+                  onChange={e => setFormB(p => ({ ...p, tipo_trabajo: e.target.value }))}
+                  placeholder="Seleccionar o escribir..."
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-[#38bdf8]/50 outline-none"
+                />
+                <datalist id="tipos-trabajo">
+                  {TIPOS_TRABAJO.map(t => <option key={t} value={t} />)}
+                </datalist>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Finca</label>
+                <select
+                  value={formB.finca}
+                  onChange={e => setFormB(p => ({ ...p, finca: e.target.value }))}
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#38bdf8]/50 outline-none"
+                >
+                  <option value="">— Sin especificar —</option>
+                  {FINCAS.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Ámbito</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'finca_completa', label: 'Finca completa' },
+                    { value: 'parcelas_concretas', label: 'Parcelas concretas' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setFormB(p => ({ ...p, ambito: opt.value }))}
+                      className={`flex-1 py-2 rounded-lg border text-[11px] font-bold transition-colors ${
+                        formB.ambito === opt.value
+                          ? 'border-[#38bdf8]/50 bg-[#38bdf8]/10 text-[#38bdf8]'
+                          : 'border-white/10 text-slate-400 hover:border-white/20'
+                      }`}
+                    >{opt.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {formB.ambito === 'parcelas_concretas' && (
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Parcelas (separadas por coma)</label>
+                  <input
+                    type="text"
+                    value={formB.parcelas}
+                    onChange={e => setFormB(p => ({ ...p, parcelas: e.target.value }))}
+                    placeholder="S-01, S-02, S-03..."
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-[#38bdf8]/50 outline-none"
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Hora inicio</label>
+                  <input
+                    type="time"
+                    value={formB.hora_inicio}
+                    onChange={e => setFormB(p => ({ ...p, hora_inicio: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#38bdf8]/50 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Hora fin</label>
+                  <input
+                    type="time"
+                    value={formB.hora_fin}
+                    onChange={e => setFormB(p => ({ ...p, hora_fin: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#38bdf8]/50 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Nº Operarios</label>
+                  <input
+                    type="number" min="0"
+                    value={formB.num_operarios}
+                    onChange={e => setFormB(p => ({ ...p, num_operarios: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#38bdf8]/50 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Nombres</label>
+                  <input
+                    type="text"
+                    value={formB.nombres_operarios}
+                    onChange={e => setFormB(p => ({ ...p, nombres_operarios: e.target.value }))}
+                    placeholder="Juan, Pedro..."
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-[#38bdf8]/50 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Notas</label>
+                <AudioInput
+                  value={formB.notas}
+                  onChange={v => setFormB(p => ({ ...p, notas: v }))}
+                  placeholder="Observaciones del trabajo..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {[1, 2].map(n => (
+                  <div key={n}>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Foto {n}</label>
+                    <label className="flex items-center gap-2 px-3 py-2.5 bg-slate-800 border border-white/10 rounded-lg cursor-pointer hover:border-[#38bdf8]/30 transition-colors">
+                      <Camera className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span className="text-[11px] text-slate-400 truncate">
+                        {n === 1 ? (formB.foto1?.name ?? 'Capturar / Subir') : (formB.foto2?.name ?? 'Capturar / Subir')}
+                      </span>
+                      <input
+                        type="file" accept="image/*" capture="environment" className="sr-only"
+                        onChange={e => {
+                          const f = e.target.files?.[0] ?? null
+                          setFormB(p => n === 1 ? { ...p, foto1: f } : { ...p, foto2: f })
+                        }}
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setModal(null)} className="flex-1 py-2.5 rounded-lg border border-white/10 text-slate-400 text-sm hover:border-white/20 transition-colors">Cancelar</button>
+                <button
+                  onClick={submitB}
+                  disabled={saving || !formB.tipo_trabajo}
+                  className="flex-1 py-2.5 rounded-lg bg-amber-500 text-[#020617] text-sm font-black hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {saving && <span className="w-3.5 h-3.5 border-2 border-[#020617]/20 border-t-[#020617] rounded-full animate-spin" />}
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* MODAL C — Parte Personal JuanPe                           */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {modal === 'C' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-slate-900 border-b border-white/10 px-5 py-3 flex items-center justify-between">
+              <span className="text-sm font-black uppercase tracking-widest text-green-400">
+                C · Parte Personal JuanPe
+              </span>
+              <button onClick={() => setModal(null)} className="text-slate-500 hover:text-white text-lg leading-none">×</button>
+            </div>
+            <div className="p-5 space-y-4">
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Texto libre *</label>
+                <AudioInput
+                  value={formC.texto}
+                  onChange={v => setFormC(p => ({ ...p, texto: v }))}
+                  placeholder="Qué gestiona, decisiones tomadas, observaciones..."
+                  rows={5}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Con quién</label>
+                <input
+                  type="text"
+                  value={formC.con_quien}
+                  onChange={e => setFormC(p => ({ ...p, con_quien: e.target.value }))}
+                  placeholder="Técnico CAAE, proveedor, gestor..."
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-[#38bdf8]/50 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Dónde</label>
+                <AudioInput
+                  value={formC.donde}
+                  onChange={v => setFormC(p => ({ ...p, donde: v }))}
+                  placeholder="Murcia, nave, oficina..."
+                  rows={1}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Foto (opcional)</label>
+                <label className="flex items-center gap-2 px-3 py-2.5 bg-slate-800 border border-white/10 rounded-lg cursor-pointer hover:border-[#38bdf8]/30 transition-colors">
+                  <Camera className="w-4 h-4 text-slate-500 shrink-0" />
+                  <span className="text-[11px] text-slate-400 truncate">
+                    {formC.foto?.name ?? 'Capturar / Subir'}
+                  </span>
+                  <input
+                    type="file" accept="image/*" capture="environment" className="sr-only"
+                    onChange={e => {
+                      const f = e.target.files?.[0] ?? null
+                      setFormC(p => ({ ...p, foto: f }))
+                    }}
+                  />
+                </label>
+              </div>
+
+              <p className="text-[10px] text-slate-600">La fecha y hora se registran automáticamente.</p>
+
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setModal(null)} className="flex-1 py-2.5 rounded-lg border border-white/10 text-slate-400 text-sm hover:border-white/20 transition-colors">Cancelar</button>
+                <button
+                  onClick={submitC}
+                  disabled={saving || !formC.texto.trim()}
+                  className="flex-1 py-2.5 rounded-lg bg-green-600 text-white text-sm font-black hover:bg-green-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {saving && <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* MODAL D — Residuos Vegetales                              */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {modal === 'D' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-slate-900 border-b border-white/10 px-5 py-3 flex items-center justify-between">
+              <span className="text-sm font-black uppercase tracking-widest text-orange-400">
+                D · Residuos Vegetales
+              </span>
+              <button onClick={() => setModal(null)} className="text-slate-500 hover:text-white text-lg leading-none">×</button>
+            </div>
+            <div className="p-5 space-y-4">
+
+              {/* CONDUCTOR — desde Personal */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Conductor</label>
+                <select
+                  value={formD.personal_id}
+                  onChange={e => {
+                    const id = e.target.value
+                    const nombre = conductoresCamion.find(c => c.id === id)?.nombre ?? ''
+                    setFormD(p => ({ ...p, personal_id: id, nombre_conductor: nombre }))
+                  }}
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#38bdf8]/50 outline-none"
+                >
+                  <option value="">— Seleccionar conductor —</option>
+                  {conductoresCamion.map(c => (
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* GANADERO DESTINO — desde tabla ganaderos */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Ganadero destino</label>
+                <select
+                  value={formD.ganadero_id}
+                  onChange={e => setFormD(p => ({ ...p, ganadero_id: e.target.value, nuevo_ganadero: '' }))}
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#38bdf8]/50 outline-none"
+                >
+                  <option value="">— Seleccionar ganadero —</option>
+                  <option value="__nuevo__">+ Nuevo ganadero…</option>
+                  {ganaderos.map(g => (
+                    <option key={g.id} value={g.id}>{g.nombre}</option>
+                  ))}
+                </select>
+                {formD.ganadero_id === '__nuevo__' && (
+                  <input
+                    type="text"
+                    placeholder="Nombre del ganadero (se guardará)"
+                    value={formD.nuevo_ganadero}
+                    onChange={e => setFormD(p => ({ ...p, nuevo_ganadero: e.target.value, ganadero_id: '__nuevo__' }))}
+                    className="mt-2 w-full bg-slate-800 border border-orange-400/40 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-orange-400/70 outline-none"
+                  />
+                )}
+              </div>
+
+              {/* HORAS */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Hora salida nave</label>
+                  <input
+                    type="time"
+                    value={formD.hora_salida_nave}
+                    onChange={e => setFormD(p => ({ ...p, hora_salida_nave: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#38bdf8]/50 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Hora llegada ganadero</label>
+                  <input
+                    type="time"
+                    value={formD.hora_llegada_ganadero}
+                    onChange={e => setFormD(p => ({ ...p, hora_llegada_ganadero: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#38bdf8]/50 outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Hora regreso nave</label>
+                <input
+                  type="time"
+                  value={formD.hora_regreso_nave}
+                  onChange={e => setFormD(p => ({ ...p, hora_regreso_nave: e.target.value }))}
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#38bdf8]/50 outline-none"
+                />
+              </div>
+
+              {/* NOTAS */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Notas de la descarga</label>
+                <AudioInput
+                  value={formD.notas_descarga}
+                  onChange={v => setFormD(p => ({ ...p, notas_descarga: v }))}
+                  placeholder="Observaciones del viaje..."
+                  rows={3}
+                />
+              </div>
+
+              {/* FOTO OBLIGATORIA */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">
+                  Foto <span className="text-orange-400">*</span>
+                </label>
+                {formD.foto ? (
+                  <div className="flex items-center gap-3 p-3 bg-slate-800 rounded-lg border border-white/10">
+                    <img
+                      src={URL.createObjectURL(formD.foto)}
+                      alt="preview"
+                      className="w-14 h-14 object-cover rounded-lg shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white truncate">{formD.foto.name}</p>
+                      <p className="text-[10px] text-slate-500">{(formD.foto.size / 1024).toFixed(0)} KB</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormD(p => ({ ...p, foto: null }))}
+                      className="text-slate-500 hover:text-red-400 transition-colors"
+                    >×</button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-3 p-3 bg-slate-800 rounded-lg border border-dashed border-white/20 cursor-pointer hover:border-orange-400/50 transition-colors">
+                    <Camera className="w-5 h-5 text-slate-500" />
+                    <span className="text-sm text-slate-400">Tomar foto o seleccionar</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={e => {
+                        const f = e.target.files?.[0]
+                        if (f) setFormD(p => ({ ...p, foto: f }))
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setModal(null)} className="flex-1 py-2.5 rounded-lg border border-white/10 text-slate-400 text-sm hover:border-white/20 transition-colors">Cancelar</button>
+                <button
+                  onClick={submitD}
+                  disabled={saving || !formD.foto}
+                  className="flex-1 py-2.5 rounded-lg bg-orange-600 text-white text-sm font-black hover:bg-orange-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {saving && <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
       {/* MODAL — RESULTADO CIERRE DE JORNADA                       */}
       {/* ══════════════════════════════════════════════════════════ */}
       {showCierre && cierreResultado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl">
-            <div className="border-b border-border px-5 py-3 flex items-center justify-between">
-              <span className="text-sm font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">Jornada cerrada</span>
-              <button type="button" onClick={() => setShowCierre(false)} className="text-muted-foreground hover:text-foreground text-lg leading-none">×</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-xl w-full max-w-md shadow-2xl">
+            <div className="border-b border-white/10 px-5 py-3 flex items-center justify-between">
+              <span className="text-sm font-black uppercase tracking-widest text-orange-400">Jornada cerrada</span>
+              <button onClick={() => setShowCierre(false)} className="text-slate-500 hover:text-white text-lg leading-none">×</button>
             </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Trabajos ejecutados', value: cierreResultado.ejecutados, color: 'text-green-600 dark:text-green-400' },
-                  { label: 'Pendientes arrastrados', value: cierreResultado.arrastrados, color: 'text-orange-600 dark:text-orange-400' },
-                  { label: 'Incidencias arrastradas', value: cierreResultado.incidenciasArrastradas, color: 'text-red-600 dark:text-red-400' },
-                  { label: 'Pendientes marcados', value: cierreResultado.pendientes, color: 'text-muted-foreground' },
+                  { label: 'Trabajos ejecutados', value: cierreResultado.ejecutados, color: 'text-green-400' },
+                  { label: 'Pendientes arrastrados', value: cierreResultado.arrastrados, color: 'text-orange-400' },
+                  { label: 'Incidencias arrastradas', value: cierreResultado.incidenciasArrastradas, color: 'text-red-400' },
+                  { label: 'Pendientes marcados', value: cierreResultado.pendientes, color: 'text-slate-400' },
                 ].map(({ label, value, color }) => (
-                  <div key={label} className="bg-muted/50 border border-border rounded-lg px-3 py-3 text-center">
+                  <div key={label} className="bg-slate-800/60 border border-white/10 rounded-lg px-3 py-3 text-center">
                     <p className={`text-2xl font-black ${color}`}>{value}</p>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">{label}</p>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">{label}</p>
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] text-muted-foreground text-center">
+              <p className="text-[11px] text-slate-500 text-center">
                 Los trabajos pendientes e incidencias urgentes han sido arrastrados a manana con prioridad alta.
               </p>
               <div className="flex gap-3">
                 <button
-                  type="button"
                   onClick={() => setShowCierre(false)}
-                  className="flex-1 py-2.5 rounded-lg border border-border text-muted-foreground text-sm hover:bg-muted transition-colors"
+                  className="flex-1 py-2.5 rounded-lg border border-white/10 text-slate-400 text-sm hover:border-white/20 transition-colors"
                 >
                   Cerrar
                 </button>
                 <button
-                  type="button"
                   onClick={() => { setShowCierre(false); navigate('/trabajos') }}
                   className="flex-1 py-2.5 rounded-lg bg-orange-600 text-white text-sm font-black hover:bg-orange-500 transition-colors"
                 >
@@ -1006,6 +1934,6 @@ export default function ParteDiario() {
         </div>
       )}
 
-    </PageShell.Root>
+    </div>
   )
 }

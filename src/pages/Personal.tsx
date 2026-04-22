@@ -1,14 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
-import {
-  generarPDFCorporativoBase,
-  pdfCorporateSection,
-  PDF_BRAND,
-  PDF_MARGIN,
-  PDF_TEXT_W,
-} from '../utils/pdfUtils';
-import { toast } from '@/hooks/use-toast';
+import jsPDF from 'jspdf';
 import {
   ArrowLeft, FileText, Plus, Users, Phone, CreditCard,
   Download, Building2, ChevronDown, ChevronUp, CheckCircle2, XCircle,
@@ -23,8 +16,6 @@ import {
   CATEGORIA_LABELS, CATEGORIA_COLORS, TIPO_EXTERNO_LABELS,
 } from '../hooks/usePersonal';
 import { SelectWithOther, AudioInput, PhotoAttachment, RecordActions } from '@/components/base';
-import { useCatalogoLocal } from '@/hooks/useCatalogoLocal';
-import { toast } from '@/hooks/use-toast';
 import { uploadImage } from '../utils/uploadImage';
 import { FINCAS_NOMBRES } from '../constants/farms';
 
@@ -34,7 +25,7 @@ type TabType = 'operario_campo' | 'encargado' | 'conductor_maquinaria' | 'conduc
 
 const TABS: { id: TabType; label: string; color: string }[] = [
   { id: 'operario_campo',       label: 'Operarios',  color: '#22c55e' },
-  { id: 'encargado',            label: 'Encargados',  color: '#6d9b7d' },
+  { id: 'encargado',            label: 'Encargados',  color: '#38bdf8' },
   { id: 'conductor_maquinaria', label: 'Maquinaria',  color: '#fb923c' },
   { id: 'conductor_camion',     label: 'Camion',      color: '#a78bfa' },
   { id: 'externo',              label: 'Externa',     color: '#f472b6' },
@@ -182,9 +173,6 @@ function ModalPersonal({
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
 
-  const catLicencias = useCatalogoLocal('personal_licencias', LICENCIAS_OPCIONES);
-  const catCarnets   = useCatalogoLocal('personal_carnets',   CARNET_OPCIONES);
-
   const color = CATEGORIA_COLORS[categoria];
 
   async function handleSubmit(e: React.FormEvent) {
@@ -306,7 +294,7 @@ function ModalPersonal({
                 options={FINCAS_NOMBRES}
                 value={fincaAsignada}
                 onChange={setFincaAsignada}
-                onCreateNew={() => toast({ title: 'Fincas fijas', description: 'Las fincas se gestionan desde el GeoJSON principal.' })}
+                onCreateNew={v => setFincaAsignada(v)}
                 placeholder="Seleccionar finca..."
               />
             </>
@@ -317,10 +305,10 @@ function ModalPersonal({
               <hr className="border-white/5" />
               <SelectWithOther
                 label="Licencias"
-                options={catLicencias.opciones}
+                options={LICENCIAS_OPCIONES}
                 value={licencias}
                 onChange={setLicencias}
-                onCreateNew={v => { catLicencias.addOpcion(v); setLicencias(v); }}
+                onCreateNew={v => setLicencias(v)}
                 placeholder="Tipo de licencia..."
               />
             </>
@@ -331,10 +319,10 @@ function ModalPersonal({
               <hr className="border-white/5" />
               <SelectWithOther
                 label="Tipo de carnet"
-                options={catCarnets.opciones}
+                options={CARNET_OPCIONES}
                 value={carnetTipo}
                 onChange={setCarnetTipo}
-                onCreateNew={v => { catCarnets.addOpcion(v); setCarnetTipo(v); }}
+                onCreateNew={v => setCarnetTipo(v)}
                 placeholder="Seleccionar carnet..."
               />
               <div>
@@ -820,69 +808,66 @@ export default function Personal() {
     return d !== null && d <= 30;
   });
 
-  async function generarPDF() {
+  function generarPDF() {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const W = doc.internal.pageSize.getWidth();
+    let y = 20;
+
+    const writeLine = (text: string, size = 9, bold = false) => {
+      doc.setFontSize(size);
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.text(text, 15, y);
+      y += size * 0.5 + 2;
+    };
+    const separator = () => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.setDrawColor(200, 200, 200);
+      doc.line(15, y, W - 15, y);
+      y += 4;
+    };
+
+    doc.setFillColor(2, 6, 23);
+    doc.rect(0, 0, W, 14, 'F');
+    doc.setTextColor(255, 255, 255);
+    writeLine('AGRICOLA MARVIC — LISTADO DE PERSONAL', 11, true);
+    doc.setTextColor(0, 0, 0);
+    writeLine(new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }), 9);
+    y += 4;
+
     const CATS: CategoriaPersonal[] = ['operario_campo', 'encargado', 'conductor_maquinaria', 'conductor_camion'];
-    const fs = new Date().toISOString().slice(0, 10);
-    try {
-      await generarPDFCorporativoBase({
-        titulo: 'LISTADO DE PERSONAL',
-        subtitulo: 'Agrícola Marvic · explotación',
-        fecha: new Date(),
-        filename: `Personal_MARVIC_${fs}.pdf`,
-        bloques: [(ctx) => {
-          const doc = ctx.doc;
-          for (const cat of CATS) {
-            const lista = todoPersonal.filter(p => p.categoria === cat);
-            if (lista.length === 0) continue;
-            pdfCorporateSection(ctx, CATEGORIA_LABELS[cat]);
-            for (const p of lista) {
-              const line =
-                `${p.activo ? 'ACTIVO' : 'BAJA'}  ${p.nombre}${p.codigo_interno ? `  [${p.codigo_interno}]` : ''}${p.dni ? `  DNI: ${p.dni}` : ''}${p.telefono ? `  Tel: ${p.telefono}` : ''}`;
-              doc.setFontSize(8);
-              doc.setFont('helvetica', 'normal');
-              doc.setTextColor(...PDF_BRAND.green);
-              const lines = doc.splitTextToSize(line, PDF_TEXT_W) as string[];
-              for (const ln of lines) {
-                ctx.checkPage(5);
-                doc.text(ln, PDF_MARGIN, ctx.y);
-                ctx.y += 4.2;
-              }
-              ctx.y += 1.5;
-            }
-            ctx.y += 2;
-          }
-          if (externos.length > 0) {
-            pdfCorporateSection(ctx, 'Mano de obra externa');
-            for (const e of externos) {
-              const line =
-                `${e.activo ? 'ACTIVO' : 'BAJA'}  ${e.nombre_empresa}${e.codigo_interno ? `  [${e.codigo_interno}]` : ''}  ${TIPO_EXTERNO_LABELS[e.tipo]}${e.nif ? `  NIF: ${e.nif}` : ''}${e.telefono_contacto ? `  Tel: ${e.telefono_contacto}` : ''}`;
-              doc.setFontSize(8);
-              doc.setFont('helvetica', 'normal');
-              doc.setTextColor(...PDF_BRAND.green);
-              const lines = doc.splitTextToSize(line, PDF_TEXT_W) as string[];
-              for (const ln of lines) {
-                ctx.checkPage(5);
-                doc.text(ln, PDF_MARGIN, ctx.y);
-                ctx.y += 4.2;
-              }
-              ctx.y += 1.5;
-            }
-          }
-        }],
-      });
-      toast({ title: 'PDF generado', description: 'Listado de personal descargado.' });
-    } catch (e) {
-      console.error('PDF personal:', e);
-      toast({
-        title: 'Error al generar el PDF',
-        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
-        variant: 'destructive',
-      });
+    for (const cat of CATS) {
+      const lista = todoPersonal.filter(p => p.categoria === cat);
+      if (lista.length === 0) continue;
+      separator();
+      writeLine(CATEGORIA_LABELS[cat].toUpperCase(), 10, true);
+      y += 1;
+      for (const p of lista) {
+        writeLine(
+          `${p.activo ? 'ACTIVO' : 'BAJA'}  ${p.nombre}${p.codigo_interno ? `  [${p.codigo_interno}]` : ''}${p.dni ? `  DNI: ${p.dni}` : ''}${p.telefono ? `  Tel: ${p.telefono}` : ''}`,
+          8,
+        );
+      }
+      y += 2;
     }
+
+    if (externos.length > 0) {
+      separator();
+      writeLine('MANO DE OBRA EXTERNA', 10, true);
+      y += 1;
+      for (const e of externos) {
+        writeLine(
+          `${e.activo ? 'ACTIVO' : 'BAJA'}  ${e.nombre_empresa}${e.codigo_interno ? `  [${e.codigo_interno}]` : ''}  ${TIPO_EXTERNO_LABELS[e.tipo]}${e.nif ? `  NIF: ${e.nif}` : ''}${e.telefono_contacto ? `  Tel: ${e.telefono_contacto}` : ''}`,
+          8,
+        );
+      }
+    }
+
+    doc.save(`Personal_MARVIC_${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-[#020617] text-white">
       {/* Header */}
       <div className="flex items-center justify-between pl-14 pr-4 pt-4 pb-3 border-b border-white/10">
         <div className="flex items-center gap-3">
@@ -900,7 +885,7 @@ export default function Personal() {
             </div>
           </div>
         </div>
-        <button type="button" onClick={() => void generarPDF()}
+        <button onClick={generarPDF}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 text-xs">
           <FileText className="w-3.5 h-3.5" />
           PDF
@@ -912,7 +897,7 @@ export default function Personal() {
         <div className="grid grid-cols-5 gap-2">
           {[
             { label: 'Operarios',  cat: 'operario_campo' as CategoriaPersonal,       color: '#22c55e', externo: false },
-            { label: 'Encargados', cat: 'encargado' as CategoriaPersonal,             color: '#6d9b7d', externo: false },
+            { label: 'Encargados', cat: 'encargado' as CategoriaPersonal,             color: '#38bdf8', externo: false },
             { label: 'Maquinaria', cat: 'conductor_maquinaria' as CategoriaPersonal,  color: '#fb923c', externo: false },
             { label: 'Camion',     cat: 'conductor_camion' as CategoriaPersonal,      color: '#a78bfa', externo: false },
             { label: 'Externa',    cat: null,                                          color: '#f472b6', externo: true },

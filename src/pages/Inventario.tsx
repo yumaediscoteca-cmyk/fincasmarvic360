@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Warehouse, Tag, Package,
-  Activity, Wifi, FileText, Filter, Clock, Moon, Sun,
+  Activity, Server, Wifi, FileText, Filter,
   ShoppingCart, Users, ChevronDown, ChevronRight, Plus, Trash2, Edit2,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../integrations/supabase/client';
-import { generarPDFCorporativoBase, pdfCorporateSection, PDF_BRAND, PDF_MARGIN, PDF_TEXT_W } from '../utils/pdfUtils';
+import jsPDF from 'jspdf';
 import {
   useUbicaciones, useTotalRegistros,
   useConteosUbicaciones, useCategorias,
@@ -18,8 +18,6 @@ import {
 } from '../hooks/useInventario';
 import { usePersonal } from '../hooks/usePersonal';
 import { SelectWithOther, AudioInput, PhotoAttachment, RecordActions } from '../components/base';
-import { toast } from '@/hooks/use-toast';
-import { useCatalogoLocal } from '../hooks/useCatalogoLocal';
 import { uploadImage, buildStoragePath } from '../utils/uploadImage';
 import type { Tables } from '../integrations/supabase/types';
 
@@ -55,11 +53,36 @@ const TIPOS_PROVEEDOR_LABEL: Record<string, string> = {
 }
 const UNIDADES_FRECUENTES = ['kg', 'litros', 'unidades', 'sacos', 'cajas', 'rollos', 'bidones', 'palés']
 
+// ─── Helper PDF ───────────────────────────────────────────────────────────────
+
+async function loadImageInv(url: string): Promise<{ data: string; w: number; h: number } | null> {
+  try {
+    const res  = await fetch(url)
+    const blob = await res.blob()
+    return await new Promise(resolve => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width  = img.naturalWidth
+        canvas.height = img.naturalHeight
+        const ctx = canvas.getContext('2d')!
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0)
+        const data = canvas.toDataURL('image/jpeg', 0.8)
+        URL.revokeObjectURL(img.src)
+        resolve({ data, w: img.naturalWidth, h: img.naturalHeight })
+      }
+      img.onerror = () => resolve(null)
+      img.src = URL.createObjectURL(blob)
+    })
+  } catch { return null }
+}
+
 // ─── Componente ──────────────────────────────────────────────────────────────
 
 export default function Inventario() {
-  const catUnidades = useCatalogoLocal('inventario_unidades', UNIDADES_FRECUENTES);
-  const catReceptores = useCatalogoLocal('inventario_receptores', []);
   const [mainTab,        setMainTab]        = useState<MainTab>('ubicaciones');
   const [hoveredId,      setHoveredId]      = useState<string | null>(null);
   const [now,            setNow]            = useState(new Date());
@@ -117,7 +140,7 @@ export default function Inventario() {
   const [precioSubmitting,   setPrecioSubmitting]   = useState(false);
 
   const navigate                = useNavigate();
-  const { theme, toggleTheme }  = useTheme();
+  const { theme }               = useTheme();
   const { data: ubicaciones = [],  isLoading }          = useUbicaciones();
   const { data: categorias  = [] }                       = useCategorias();
   const { data: totalRegistros, isLoading: isLoadingTotal } = useTotalRegistros();
@@ -160,10 +183,10 @@ export default function Inventario() {
   }
 
   function toggleUbic(id: string) {
-    setSelUbics(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s; });
+    setSelUbics(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
   }
   function toggleCat(id: string) {
-    setSelCats(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s; });
+    setSelCats(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
   }
 
   // ── Abrir modal proveedor ────────────────────────────────────
@@ -283,6 +306,48 @@ export default function Inventario() {
     if (selUbics.size === 0 || selCats.size === 0) return;
     setGenPdf(true);
     try {
+      const doc    = new jsPDF();
+      const margin = 15;
+      const maxW   = 180;
+      const lh     = 6;
+      let y        = 25;
+      const logo = await loadImageInv('/MARVIC_logo.png');
+
+      function addLogoToPage() {
+        if (!logo) return;
+        const lw  = 38;
+        const lh2 = lw * (logo.h / logo.w);
+        doc.addImage(logo.data, 'JPEG', 210 - margin - lw, 6, lw, lh2);
+      }
+
+      const checkPage = (needed = 10) => {
+        if (y + needed > 272) { doc.addPage(); y = 25; addLogoToPage(); }
+      };
+
+      const writeLine = (text: string, bold = false, size = 9) => {
+        checkPage();
+        doc.setFontSize(size);
+        doc.setFont('helvetica', bold ? 'bold' : 'normal');
+        const lines = doc.splitTextToSize(text, maxW) as string[];
+        doc.text(lines, margin, y);
+        y += lines.length * lh;
+      };
+
+      const separator = () => {
+        checkPage(4);
+        doc.setDrawColor(160);
+        doc.line(margin, y, margin + maxW, y);
+        y += lh;
+      };
+
+      addLogoToPage();
+      writeLine('INFORME GLOBAL DE INVENTARIO — AGRÍCOLA MARVIC 360', true, 13);
+      y += 2;
+      writeLine(`Período: ${fechaDesde} → ${fechaHasta}`);
+      writeLine(`Generado el: ${new Date().toLocaleString('es-ES')}`);
+      y += 4;
+      separator();
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: registros, error } = await (supabase as any)
         .from('inventario_registros')
@@ -298,92 +363,46 @@ export default function Inventario() {
       if (error) throw error;
       const rows: RegConRel[] = registros ?? [];
 
-      await generarPDFCorporativoBase({
-        titulo: 'INFORME GLOBAL DE INVENTARIO',
-        subtitulo: 'Agrícola Marvic 360',
-        fecha: new Date(),
-        filename: `Inventario_Global_${fechaDesde}_${fechaHasta}.pdf`,
-        bloques: [(ctx) => {
-          const doc = ctx.doc;
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'normal');
-          doc.setTextColor(...PDF_BRAND.muted);
-          doc.text(`Período: ${fechaDesde} → ${fechaHasta}`, PDF_MARGIN, ctx.y);
-          ctx.y += 5;
-          doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, PDF_MARGIN, ctx.y);
-          ctx.y += 7;
-          if (rows.length === 0) {
-            doc.setTextColor(...PDF_BRAND.green);
-            doc.text('Sin registros para el período y filtros seleccionados.', PDF_MARGIN, ctx.y);
-            return;
+      if (rows.length === 0) {
+        writeLine('Sin registros para el período y filtros seleccionados.', false, 10);
+      } else {
+        const porUbic = new Map<string, RegConRel[]>();
+        for (const r of rows) {
+          if (!porUbic.has(r.ubicacion_id)) porUbic.set(r.ubicacion_id, []);
+          porUbic.get(r.ubicacion_id)!.push(r);
+        }
+        for (const [, regsUbic] of porUbic) {
+          const nombreUbic = regsUbic[0]?.inventario_ubicaciones?.nombre ?? '—';
+          checkPage(16);
+          writeLine(`UBICACIÓN: ${nombreUbic.toUpperCase()}`, true, 11);
+          y += 2;
+          const porCat = new Map<string, RegConRel[]>();
+          for (const r of regsUbic) {
+            if (!porCat.has(r.categoria_id)) porCat.set(r.categoria_id, []);
+            porCat.get(r.categoria_id)!.push(r);
           }
-          const porUbic = new Map<string, RegConRel[]>();
-          for (const r of rows) {
-            if (!porUbic.has(r.ubicacion_id)) porUbic.set(r.ubicacion_id, []);
-            porUbic.get(r.ubicacion_id)!.push(r);
-          }
-          for (const [, regsUbic] of porUbic) {
-            const nombreUbic = regsUbic[0]?.inventario_ubicaciones?.nombre ?? '—';
-            pdfCorporateSection(ctx, `Ubicación · ${nombreUbic}`);
-            const porCat = new Map<string, RegConRel[]>();
-            for (const r of regsUbic) {
-              if (!porCat.has(r.categoria_id)) porCat.set(r.categoria_id, []);
-              porCat.get(r.categoria_id)!.push(r);
+          for (const [, regsCat] of porCat) {
+            const nombreCat = regsCat[0]?.inventario_categorias?.nombre ?? '—';
+            checkPage(12);
+            writeLine(`Categoría: ${nombreCat} (${regsCat.length} reg.)`, true, 9);
+            y += 1;
+            for (const r of regsCat) {
+              checkPage(10);
+              const fecha = new Date(r.created_at).toLocaleDateString('es-ES');
+              writeLine(`  ${fecha}  ·  ${r.cantidad} ${r.unidad}${r.descripcion ? `  ·  ${r.descripcion}` : ''}`);
+              if (r.precio_unitario) writeLine(`  Precio: ${r.precio_unitario.toFixed(2)} €`);
+              if (r.notas)          writeLine(`  Notas: ${r.notas}`);
+              y += 1;
             }
-            for (const [, regsCat] of porCat) {
-              const nombreCat = regsCat[0]?.inventario_categorias?.nombre ?? '—';
-              doc.setFont('helvetica', 'bold');
-              doc.setFontSize(9);
-              doc.setTextColor(...PDF_BRAND.green);
-              ctx.checkPage(8);
-              doc.text(`Categoría: ${nombreCat} (${regsCat.length} reg.)`, PDF_MARGIN, ctx.y);
-              ctx.y += 5;
-              doc.setFont('helvetica', 'normal');
-              doc.setFontSize(8);
-              for (const r of regsCat) {
-                const fecha = new Date(r.created_at).toLocaleDateString('es-ES');
-                const line = `  ${fecha}  ·  ${r.cantidad} ${r.unidad}${r.descripcion ? `  ·  ${r.descripcion}` : ''}`;
-                const lines = doc.splitTextToSize(line, PDF_TEXT_W) as string[];
-                for (const ln of lines) {
-                  ctx.checkPage(4);
-                  doc.text(ln, PDF_MARGIN, ctx.y);
-                  ctx.y += 4;
-                }
-                if (r.precio_unitario) {
-                  ctx.checkPage(4);
-                  doc.text(`  Precio: ${r.precio_unitario.toFixed(2)} €`, PDF_MARGIN, ctx.y);
-                  ctx.y += 4;
-                }
-                if (r.notas) {
-                  const ns = doc.splitTextToSize(`  Notas: ${r.notas}`, PDF_TEXT_W) as string[];
-                  for (const ln of ns) {
-                    ctx.checkPage(4);
-                    doc.text(ln, PDF_MARGIN, ctx.y);
-                    ctx.y += 4;
-                  }
-                }
-                ctx.y += 2;
-              }
-              ctx.y += 2;
-            }
-            ctx.separator();
+            y += 2;
           }
-          ctx.checkPage(6);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(10);
-          doc.setTextColor(...PDF_BRAND.green);
-          doc.text(`Total registros: ${rows.length}`, PDF_MARGIN, ctx.y);
-        }],
-      });
+          separator();
+        }
+        writeLine(`Total registros: ${rows.length}`, true);
+      }
+
+      doc.save(`Inventario_Global_${fechaDesde}_${fechaHasta}.pdf`);
       setShowModal(false);
-      toast({ title: 'PDF generado', description: 'Informe de inventario descargado.' });
-    } catch (e) {
-      console.error('PDF inventario global:', e);
-      toast({
-        title: 'Error al generar el PDF',
-        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
-        variant: 'destructive',
-      });
     } finally {
       setGenPdf(false);
     }
@@ -398,65 +417,40 @@ export default function Inventario() {
   // RENDER
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col transition-colors duration-300">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-white flex flex-col transition-colors duration-300">
 
-      {/* BARRA SUPERIOR — tema integrado (GlobalThemeToggle oculto en esta ruta) */}
-      <header className="sticky top-0 z-50 w-full border-b border-slate-200/90 bg-white/95 backdrop-blur-md dark:border-white/10 dark:bg-slate-900/92 pt-[max(0.25rem,env(safe-area-inset-top,0px))] pl-14 pr-3 sm:pr-5">
-        <div className="flex min-h-[2.75rem] flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-green-400 animate-pulse" aria-hidden />
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
-                <h1 className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-900 dark:text-white">
-                  Inventario
-                </h1>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#6d9b7d]">
-                  Activos físicos
-                </span>
-              </div>
-              <p className="mt-0.5 text-[10px] font-mono text-slate-500 dark:text-slate-400">{fechaStr}</p>
-            </div>
+      {/* BARRA SUPERIOR */}
+      <header className="w-full bg-white/90 dark:bg-slate-900/80 border-b border-slate-200 dark:border-white/10 pl-14 pr-6 py-2 flex items-center justify-between z-50">
+        <div className="flex items-center gap-3">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+          <span className="text-[10px] font-black text-green-500 dark:text-green-400 uppercase tracking-widest">
+            Inventario Activos
+          </span>
+          <span className="text-[10px] text-slate-300 dark:text-slate-600 mx-2">|</span>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{fechaStr}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={abrirModal}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[#38bdf8]/30 bg-[#38bdf8]/5 hover:bg-[#38bdf8]/10 text-[#38bdf8] transition-all"
+          >
+            <FileText className="w-3 h-3" />
+            <span className="text-[9px] font-black uppercase tracking-widest">Informe Global</span>
+          </button>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-slate-800/60 hover:border-[#38bdf8]/50 hover:text-[#38bdf8] transition-all text-slate-500 dark:text-slate-400"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            <span className="text-[9px] font-black uppercase tracking-widest">Volver</span>
+          </button>
+          <div className="flex items-center gap-1.5">
+            <Wifi className="w-3 h-3 text-green-400" />
+            <span className="text-[10px] text-green-500 dark:text-green-400 font-bold uppercase tracking-widest">Online</span>
           </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:shrink-0">
-            <button
-              type="button"
-              onClick={abrirModal}
-              className="flex items-center gap-1.5 rounded-lg border border-[#6d9b7d]/35 bg-[#6d9b7d]/8 px-2.5 py-1.5 text-[#6d9b7d] transition-colors hover:bg-[#6d9b7d]/14"
-            >
-              <FileText className="h-3.5 w-3.5 shrink-0" />
-              <span className="text-[9px] font-black uppercase tracking-widest">Informe</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-slate-600 transition-colors hover:border-[#6d9b7d]/45 hover:text-[#6d9b7d] dark:border-white/10 dark:bg-slate-800/70 dark:text-slate-300"
-            >
-              <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-              <span className="text-[9px] font-black uppercase tracking-widest">Volver</span>
-            </button>
-
-            <div
-              className="flex items-center gap-2 rounded-lg border border-slate-200/90 bg-slate-50 px-2 py-1 dark:border-white/10 dark:bg-slate-800/55"
-              title="Estado de conexión"
-            >
-              <Wifi className="h-3.5 w-3.5 shrink-0 text-green-500 dark:text-green-400" aria-hidden />
-              <span className="text-[9px] font-bold uppercase tracking-wider text-green-600 dark:text-green-400">
-                Online
-              </span>
-              <span className="h-3 w-px shrink-0 bg-slate-200 dark:bg-white/15" aria-hidden />
-              <Clock className="h-3 w-3 shrink-0 text-slate-400 dark:text-slate-500" aria-hidden />
-              <span className="font-mono text-[10px] tabular-nums text-slate-600 dark:text-slate-300">{horaStr}</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label={isDark ? 'Activar modo claro' : 'Activar modo oscuro'}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-            >
-              {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
-            </button>
+          <div className="flex items-center gap-1.5">
+            <Server className="w-3 h-3 text-[#38bdf8]" />
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{horaStr}</span>
           </div>
         </div>
       </header>
@@ -473,7 +467,7 @@ export default function Inventario() {
             onClick={() => setMainTab(id)}
             className={`flex items-center gap-1.5 px-4 py-2 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${
               mainTab === id
-                ? 'border-[#6d9b7d] text-[#6d9b7d]'
+                ? 'border-[#38bdf8] text-[#38bdf8]'
                 : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
             }`}
           >
@@ -490,17 +484,17 @@ export default function Inventario() {
         {mainTab === 'ubicaciones' && (
           <div className="flex flex-col items-center">
             <div className="flex flex-col items-center mb-10 relative">
-              <div className="absolute w-[600px] h-[300px] bg-[#6d9b7d]/10 rounded-full blur-[120px] opacity-50 pointer-events-none" />
+              <div className="absolute w-[600px] h-[300px] bg-[#38bdf8]/10 rounded-full blur-[120px] opacity-50 pointer-events-none" />
               <img
                 src="/MARVIC_logo.png"
                 className="w-full max-w-[480px] opacity-90 relative z-10"
                 style={{
                   filter: isDark
-                    ? 'brightness(0) invert(1) drop-shadow(0 0 30px rgba(109,155,125,0.35))'
-                    : 'drop-shadow(0 0 20px rgba(109,155,125,0.25))',
+                    ? 'brightness(0) invert(1) drop-shadow(0 0 30px rgba(56,189,248,0.3))'
+                    : 'drop-shadow(0 0 20px rgba(56,189,248,0.2))',
                 }}
               />
-              <div className="mt-4 h-px w-64 bg-gradient-to-r from-transparent via-[#6d9b7d]/40 to-transparent" />
+              <div className="mt-4 h-px w-64 bg-gradient-to-r from-transparent via-[#38bdf8]/40 to-transparent" />
               <p className="mt-3 text-[10px] tracking-[0.5em] uppercase font-black text-slate-400 dark:text-slate-500">
                 Inventario de Activos Físicos
               </p>
@@ -513,7 +507,7 @@ export default function Inventario() {
                 { label: 'Registros',   value: isLoadingTotal ? '…' : String(totalRegistros ?? 0), icon: Package },
               ].map(({ label, value, icon: Icon }) => (
                 <div key={label} className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 rounded-lg px-4 py-3 text-center shadow-sm dark:shadow-none">
-                  <Icon className="w-4 h-4 text-[#6d9b7d] mx-auto mb-1" />
+                  <Icon className="w-4 h-4 text-[#38bdf8] mx-auto mb-1" />
                   <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{label}</p>
                   <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5">{value}</p>
                 </div>
@@ -522,12 +516,12 @@ export default function Inventario() {
 
             <div className="w-full max-w-3xl">
               <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em] mb-3 flex items-center gap-2">
-                <Warehouse className="w-3.5 h-3.5 text-[#6d9b7d]" />
+                <Warehouse className="w-3.5 h-3.5 text-[#38bdf8]" />
                 Acceso directo por ubicación
               </p>
               {isLoading ? (
                 <div className="flex items-center justify-center py-16">
-                  <span className="text-[11px] font-black text-[#6d9b7d] uppercase tracking-widest animate-pulse">Cargando...</span>
+                  <span className="text-[11px] font-black text-[#38bdf8] uppercase tracking-widest animate-pulse">Cargando...</span>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -539,18 +533,18 @@ export default function Inventario() {
                       onClick={() => navigate(`/inventario/${ub.id}`)}
                       className={`text-left p-3 rounded-lg border transition-all duration-200 ${
                         hoveredId === ub.id
-                          ? 'bg-[#6d9b7d]/10 border-[#6d9b7d]/50 shadow-[0_0_15px_rgba(109,155,125,0.12)]'
+                          ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50 shadow-[0_0_15px_rgba(56,189,248,0.1)]'
                           : 'bg-white dark:bg-slate-900/50 border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 shadow-sm dark:shadow-none'
                       }`}
                     >
-                      <p className={`text-[10px] font-black uppercase tracking-wide transition-colors leading-tight ${hoveredId === ub.id ? 'text-[#6d9b7d]' : 'text-slate-800 dark:text-white'}`}>
+                      <p className={`text-[10px] font-black uppercase tracking-wide transition-colors leading-tight ${hoveredId === ub.id ? 'text-[#38bdf8]' : 'text-slate-800 dark:text-white'}`}>
                         {ub.nombre}
                       </p>
                       <div className="flex items-center gap-2 mt-1.5">
                         <Tag className="w-2.5 h-2.5 text-slate-400 dark:text-slate-500" />
                         <span className="text-[9px] text-slate-400 dark:text-slate-500">7 categorías</span>
                       </div>
-                      <div className={`mt-2 h-px transition-all ${hoveredId === ub.id ? 'bg-[#6d9b7d]/40' : 'bg-slate-200 dark:bg-white/5'}`} />
+                      <div className={`mt-2 h-px transition-all ${hoveredId === ub.id ? 'bg-[#38bdf8]/40' : 'bg-slate-200 dark:bg-white/5'}`} />
                       <div className="flex items-center gap-1 mt-1.5">
                         {(() => {
                           const count = conteos?.get(ub.id) ?? 0;
@@ -667,13 +661,13 @@ export default function Inventario() {
                   {/* Cabecera fila */}
                   <div className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <button onClick={() => setExpandedProvId(expandedProvId === p.id ? null : p.id)} className="text-slate-400 hover:text-[#6d9b7d] transition-colors">
+                      <button onClick={() => setExpandedProvId(expandedProvId === p.id ? null : p.id)} className="text-slate-400 hover:text-[#38bdf8] transition-colors">
                         {expandedProvId === p.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </button>
                       <div>
                         <p className="text-sm font-bold text-slate-900 dark:text-white">{p.nombre}</p>
                         <p className="text-[10px] text-slate-400">
-                          {p.codigo_interno && <span className="font-mono mr-2 text-[#6d9b7d]">{p.codigo_interno}</span>}
+                          {p.codigo_interno && <span className="font-mono mr-2 text-[#38bdf8]">{p.codigo_interno}</span>}
                           {p.tipo ? TIPOS_PROVEEDOR_LABEL[p.tipo] ?? p.tipo : ''}
                           {p.telefono ? ` · ${p.telefono}` : ''}
                         </p>
@@ -759,7 +753,7 @@ export default function Inventario() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-white/10 px-5 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Filter className="w-3.5 h-3.5 text-[#6d9b7d]" />
+                <Filter className="w-3.5 h-3.5 text-[#38bdf8]" />
                 <span className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">Informe Global de Inventario</span>
               </div>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl leading-none">×</button>
@@ -770,11 +764,11 @@ export default function Inventario() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1">Desde</label>
-                    <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-[#6d9b7d]/50 outline-none" />
+                    <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-[#38bdf8]/50 outline-none" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1">Hasta</label>
-                    <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-[#6d9b7d]/50 outline-none" />
+                    <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:border-[#38bdf8]/50 outline-none" />
                   </div>
                 </div>
               </div>
@@ -782,14 +776,14 @@ export default function Inventario() {
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Ubicaciones ({selUbics.size}/{ubicaciones.length})</p>
                   <div className="flex gap-2">
-                    <button onClick={() => setSelUbics(new Set(ubicaciones.map(u => u.id)))} className="text-[9px] text-[#6d9b7d] hover:underline font-bold uppercase">Todas</button>
+                    <button onClick={() => setSelUbics(new Set(ubicaciones.map(u => u.id)))} className="text-[9px] text-[#38bdf8] hover:underline font-bold uppercase">Todas</button>
                     <button onClick={() => setSelUbics(new Set())} className="text-[9px] text-slate-400 hover:underline uppercase">Ninguna</button>
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   {ubicaciones.map(u => (
                     <label key={u.id} className="flex items-center gap-2.5 cursor-pointer group">
-                      <input type="checkbox" checked={selUbics.has(u.id)} onChange={() => toggleUbic(u.id)} className="w-3.5 h-3.5 accent-primary" />
+                      <input type="checkbox" checked={selUbics.has(u.id)} onChange={() => toggleUbic(u.id)} className="w-3.5 h-3.5 accent-sky-400" />
                       <span className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">{u.nombre}</span>
                     </label>
                   ))}
@@ -799,14 +793,14 @@ export default function Inventario() {
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Categorías ({selCats.size}/{categorias.length})</p>
                   <div className="flex gap-2">
-                    <button onClick={() => setSelCats(new Set(categorias.map(c => c.id)))} className="text-[9px] text-[#6d9b7d] hover:underline font-bold uppercase">Todas</button>
+                    <button onClick={() => setSelCats(new Set(categorias.map(c => c.id)))} className="text-[9px] text-[#38bdf8] hover:underline font-bold uppercase">Todas</button>
                     <button onClick={() => setSelCats(new Set())} className="text-[9px] text-slate-400 hover:underline uppercase">Ninguna</button>
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   {categorias.map(c => (
                     <label key={c.id} className="flex items-center gap-2.5 cursor-pointer group">
-                      <input type="checkbox" checked={selCats.has(c.id)} onChange={() => toggleCat(c.id)} className="w-3.5 h-3.5 accent-primary" />
+                      <input type="checkbox" checked={selCats.has(c.id)} onChange={() => toggleCat(c.id)} className="w-3.5 h-3.5 accent-sky-400" />
                       <span className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">{c.nombre}</span>
                     </label>
                   ))}
@@ -819,7 +813,7 @@ export default function Inventario() {
                   disabled={genPdf || selUbics.size === 0 || selCats.size === 0}
                   className="btn-primary flex-1 py-2.5 rounded-lg text-sm font-black flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {genPdf ? <span className="w-3.5 h-3.5 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                  {genPdf ? <span className="w-3.5 h-3.5 border-2 border-[#020617]/20 border-t-[#020617] rounded-full animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                   {genPdf ? 'Generando…' : 'Generar PDF'}
                 </button>
               </div>
@@ -844,9 +838,9 @@ export default function Inventario() {
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">Proveedor</label>
                 <SelectWithOther
-                  options={proveedores.map(p => p.nombre)}
-                  value={proveedores.find(p => p.id === entradaProveedorId)?.nombre ?? ''}
-                  onChange={v => { const p = proveedores.find(x => x.nombre === v); setEntradaProveedorId(p?.id ?? ''); }}
+                  options={proveedores.map(p => ({ value: p.id, label: p.nombre }))}
+                  value={entradaProveedorId}
+                  onChange={v => setEntradaProveedorId(v)}
                   placeholder="Seleccionar proveedor"
                   onCreateNew={async (nombre) => {
                     const result = await addProveedor.mutateAsync({ nombre, tipo: 'proveedor_materiales' });
@@ -857,39 +851,33 @@ export default function Inventario() {
 
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">Ubicacion *</label>
-                <select
+                <SelectWithOther
+                  options={ubicaciones.map(u => ({ value: u.id, label: u.nombre }))}
                   value={entradaUbicacion}
-                  onChange={e => { setEntradaUbicacion(e.target.value); setEntradaProductoId(''); }}
-                  className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none"
-                >
-                  <option value="">Seleccionar ubicacion</option>
-                  {ubicaciones.map(u => <option key={u.id} value={u.id}>{u.nombre}</option>)}
-                </select>
+                  onChange={v => { setEntradaUbicacion(v); setEntradaProductoId(''); }}
+                  placeholder="Seleccionar ubicacion"
+                />
               </div>
 
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">Categoria *</label>
-                <select
+                <SelectWithOther
+                  options={categorias.map(c => ({ value: c.id, label: c.nombre }))}
                   value={entradaCategoria}
-                  onChange={e => { setEntradaCategoria(e.target.value); setEntradaProductoId(''); }}
-                  className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none"
-                >
-                  <option value="">Seleccionar categoria</option>
-                  {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                </select>
+                  onChange={v => { setEntradaCategoria(v); setEntradaProductoId(''); }}
+                  placeholder="Seleccionar categoria"
+                />
               </div>
 
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">Producto</label>
-                <select
+                <SelectWithOther
+                  options={productos.map(p => ({ value: p.id, label: p.nombre }))}
                   value={entradaProductoId}
-                  onChange={e => setEntradaProductoId(e.target.value)}
+                  onChange={v => setEntradaProductoId(v)}
+                  placeholder="Seleccionar producto"
                   disabled={!entradaCategoria}
-                  className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none"
-                >
-                  <option value="">Seleccionar producto</option>
-                  {productos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                </select>
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -900,10 +888,9 @@ export default function Inventario() {
                 <div>
                   <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">Unidad</label>
                   <SelectWithOther
-                    options={catUnidades.opciones}
+                    options={UNIDADES_FRECUENTES.map(u => ({ value: u, label: u }))}
                     value={entradaUnidad}
                     onChange={v => setEntradaUnidad(v)}
-                    onCreateNew={v => { catUnidades.addOpcion(v); setEntradaUnidad(v); }}
                     placeholder="kg"
                   />
                 </div>
@@ -923,10 +910,9 @@ export default function Inventario() {
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">Receptor</label>
                 <SelectWithOther
-                  options={Array.from(new Set([...personal.filter(p => p.activo).map(p => p.nombre), ...catReceptores.opciones]))}
+                  options={personal.filter(p => p.activo).map(p => ({ value: p.nombre, label: p.nombre }))}
                   value={entradaReceptor}
                   onChange={v => setEntradaReceptor(v)}
-                  onCreateNew={v => { catReceptores.addOpcion(v); setEntradaReceptor(v); }}
                   placeholder="Seleccionar receptor"
                 />
               </div>
@@ -938,7 +924,7 @@ export default function Inventario() {
 
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">Albaran (foto)</label>
-                <PhotoAttachment value={entradaFotoFile ? URL.createObjectURL(entradaFotoFile) : null} onChange={f => setEntradaFotoFile(f)} />
+                <PhotoAttachment file={entradaFotoFile} onChange={f => setEntradaFotoFile(f)} />
               </div>
 
               <div>
@@ -997,14 +983,12 @@ export default function Inventario() {
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">Tipo</label>
-                <select
+                <SelectWithOther
+                  options={TIPOS_PROVEEDOR.map(t => ({ value: t, label: TIPOS_PROVEEDOR_LABEL[t] ?? t }))}
                   value={provTipo}
-                  onChange={e => setProvTipo(e.target.value)}
-                  className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white outline-none"
-                >
-                  <option value="">Seleccionar tipo</option>
-                  {TIPOS_PROVEEDOR.map(t => <option key={t} value={t}>{TIPOS_PROVEEDOR_LABEL[t] ?? t}</option>)}
-                </select>
+                  onChange={v => setProvTipo(v)}
+                  placeholder="Seleccionar tipo"
+                />
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">Persona de contacto</label>
@@ -1015,7 +999,7 @@ export default function Inventario() {
                 <button
                   type="button"
                   onClick={() => setProvActivo(v => !v)}
-                  className={`relative w-10 h-5 rounded-full transition-colors ${provActivo ? 'bg-[#6d9b7d]' : 'bg-slate-400 dark:bg-slate-600'}`}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${provActivo ? 'bg-[#38bdf8]' : 'bg-slate-400 dark:bg-slate-600'}`}
                 >
                   <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${provActivo ? 'left-5' : 'left-0.5'}`} />
                 </button>
@@ -1026,7 +1010,7 @@ export default function Inventario() {
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">Foto</label>
-                <PhotoAttachment value={provFotoFile ? URL.createObjectURL(provFotoFile) : (editProv?.foto_url ?? null)} onChange={f => setProvFotoFile(f)} />
+                <PhotoAttachment file={provFotoFile} onChange={f => setProvFotoFile(f)} existingUrl={editProv?.foto_url ?? undefined} />
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowProvModal(false)} className="btn-secondary flex-1 py-2.5 rounded-lg text-sm">Cancelar</button>
@@ -1058,10 +1042,9 @@ export default function Inventario() {
                 <div>
                   <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">Unidad</label>
                   <SelectWithOther
-                    options={catUnidades.opciones}
+                    options={UNIDADES_FRECUENTES.map(u => ({ value: u, label: u }))}
                     value={precioUnidad}
                     onChange={v => setPrecioUnidad(v)}
-                    onCreateNew={v => { catUnidades.addOpcion(v); setPrecioUnidad(v); }}
                     placeholder="kg"
                   />
                 </div>

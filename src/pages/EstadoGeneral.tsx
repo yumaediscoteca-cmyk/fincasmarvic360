@@ -1,15 +1,12 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft, AlertTriangle, CheckCircle2, Clock,
   Tractor, Truck, FileWarning, Leaf, ShieldAlert,
-  CalendarClock, Activity, FileText,
+  CalendarClock, Activity,
 } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
-import { PDFExportModal, type PDFExportParams } from '@/components/base'
-import { generarPDFCorporativoBase, pdfCorporateSection, pdfCorporateTable } from '@/utils/pdfUtils'
-import { toast } from '@/hooks/use-toast'
 
 // ── Tipos de alerta ───────────────────────────────────────────────────────────
 
@@ -53,7 +50,7 @@ function useAlertas() {
         supabase.from('camiones').select('id, matricula, marca, modelo, fecha_itv, fecha_proxima_itv, fecha_proxima_revision, kilometros_actuales, km_proximo_mantenimiento').eq('activo', true),
         supabase.from('trabajos_incidencias').select('id, titulo, urgente, estado, finca, fecha').in('estado', ['abierta', 'en_proceso']).order('fecha', { ascending: false }),
         supabase.from('certificaciones_parcela').select('id, parcel_id, estado, fecha_fin, entidad_certificadora').in('estado', ['en_tramite', 'vigente']),
-        supabase.from('lecturas_sensor_planta').select('parcel_id, fecha').order('fecha', { ascending: false }),
+        supabase.from('lecturas_sensor_planta').select('parcel_id, created_at').order('created_at', { ascending: false }),
       ])
 
       // ── Tractores: ITV y revisión ──
@@ -130,8 +127,8 @@ function useAlertas() {
       for (const s of sensoresRes.data ?? []) {
         if (seenParcels.has(s.parcel_id)) continue
         seenParcels.add(s.parcel_id)
-        if (s.fecha && new Date(s.fecha) < hace7) {
-          const dias = Math.round((HOY.getTime() - new Date(s.fecha).getTime()) / 86400000)
+        if (new Date(s.created_at) < hace7) {
+          const dias = Math.round((HOY.getTime() - new Date(s.created_at).getTime()) / 86400000)
           alertas.push({
             id:        `sensor-${s.parcel_id}`,
             severidad: dias > 21 ? 'urgente' : 'aviso',
@@ -158,7 +155,7 @@ function useAlertas() {
 const SEV_CONFIG: Record<Severidad, { bg: string; border: string; badge: string; icon: React.ElementType; label: string }> = {
   critica: { bg: 'bg-red-500/10',    border: 'border-red-500/30',    badge: 'bg-red-500/20 text-red-400',          icon: ShieldAlert,    label: 'CRÍTICA'  },
   urgente: { bg: 'bg-amber-500/10',  border: 'border-amber-500/30',  badge: 'bg-amber-500/20 text-amber-400',      icon: AlertTriangle,  label: 'URGENTE'  },
-  aviso:   { bg: 'bg-primary/10',    border: 'border-primary/30',    badge: 'bg-primary/20 text-primary',          icon: CalendarClock,  label: 'AVISO'    },
+  aviso:   { bg: 'bg-sky-500/10',    border: 'border-sky-500/30',    badge: 'bg-sky-500/20 text-sky-400',          icon: CalendarClock,  label: 'AVISO'    },
   ok:      { bg: 'bg-green-500/10',  border: 'border-green-500/30',  badge: 'bg-green-500/20 text-green-400',      icon: CheckCircle2,   label: 'OK'       },
 }
 
@@ -172,80 +169,13 @@ const MODULO_ICON: Record<string, React.ElementType> = {
 export default function EstadoGeneral() {
   const navigate = useNavigate()
   const { data: alertas = [], isLoading, refetch } = useAlertas()
-  const [pdfOpen, setPdfOpen] = useState(false)
 
   const criticas = alertas.filter(a => a.severidad === 'critica').length
   const urgentes = alertas.filter(a => a.severidad === 'urgente').length
   const avisos   = alertas.filter(a => a.severidad === 'aviso').length
 
-  const handleExportPDF = async (_: PDFExportParams) => {
-    const filtered = _.filtros.solo_criticas
-      ? alertas.filter(a => a.severidad === 'critica')
-      : alertas
-
-    const porSeveridad = filtered.reduce((acc, a) => {
-      acc[a.severidad] = (acc[a.severidad] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
-    const porModulo = filtered.reduce((acc, a) => {
-      acc[a.modulo] = (acc[a.modulo] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
-    try {
-      await generarPDFCorporativoBase({
-        titulo: 'Estado General del Sistema',
-        subtitulo: `Panel de alertas activas · ${new Date().toLocaleDateString('es-ES')}`,
-        fecha: new Date(),
-        filename: `estado_general_${new Date().toISOString().slice(0, 10)}.pdf`,
-        bloques: [
-          (ctx) => {
-            pdfCorporateSection(ctx, 'Resumen Ejecutivo')
-            ctx.kpiRow([
-              { label: 'Críticas', value: porSeveridad.critica ?? 0 },
-              { label: 'Urgentes', value: porSeveridad.urgente ?? 0 },
-              { label: 'Avisos', value: porSeveridad.aviso ?? 0 },
-              { label: 'Total', value: filtered.length },
-            ])
-            ctx.y += 2
-            ctx.writeLabel('Distribución por módulo')
-            Object.entries(porModulo).forEach(([mod, count]) => {
-              ctx.writeLine(`  ${mod}`, String(count))
-            })
-            ctx.y += 4
-          },
-          (ctx) => {
-            if (filtered.length === 0) return
-            pdfCorporateSection(ctx, 'Detalle de Alertas')
-            const rows = filtered.map(a => [
-              a.severidad.toUpperCase(),
-              a.modulo,
-              a.titulo,
-              a.detalle,
-            ])
-            pdfCorporateTable(
-              ctx,
-              ['Severidad', 'Módulo', 'Título', 'Detalle'],
-              [24, 28, 54, 76],
-              rows,
-            )
-          },
-        ],
-      })
-      toast({ title: 'PDF generado', description: 'Estado general descargado.' })
-    } catch (e) {
-      console.error('PDF estado general:', e)
-      toast({
-        title: 'Error al generar el PDF',
-        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
-        variant: 'destructive',
-      })
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="min-h-screen bg-[#020617] text-white flex flex-col">
 
       {/* CABECERA */}
       <header className="bg-slate-900/80 border-b border-white/10 pl-14 pr-4 py-2.5 flex items-center gap-3 flex-wrap">
@@ -257,36 +187,15 @@ export default function EstadoGeneral() {
           <span className="text-[10px] font-black uppercase tracking-widest">Volver</span>
         </button>
         <div className="w-px h-4 bg-white/10" />
-        <Activity className="w-4 h-4 text-[#6d9b7d]" />
-        <span className="text-[10px] font-black uppercase tracking-widest text-[#6d9b7d]">Estado General</span>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => setPdfOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-500/20 border border-slate-500/40 text-slate-300 hover:bg-slate-500/30 transition-colors text-[9px] font-black uppercase tracking-widest"
-          >
-            <FileText className="w-3 h-3" />
-            <span className="hidden sm:inline">PDF</span>
-          </button>
-          <button
-            onClick={() => refetch()}
-            className="text-[9px] font-black text-slate-500 hover:text-white uppercase tracking-widest transition-colors"
-          >
-            Actualizar
-          </button>
-        </div>
+        <Activity className="w-4 h-4 text-[#38bdf8]" />
+        <span className="text-[10px] font-black uppercase tracking-widest text-[#38bdf8]">Estado General</span>
+        <button
+          onClick={() => refetch()}
+          className="ml-auto text-[9px] font-black text-slate-500 hover:text-white uppercase tracking-widest transition-colors"
+        >
+          Actualizar
+        </button>
       </header>
-
-      <PDFExportModal
-        open={pdfOpen}
-        onClose={() => setPdfOpen(false)}
-        title="Estado General"
-        subtitle="Panel de alertas activas del sistema"
-        accentColor="#94a3b8"
-        filtros={[
-          { key: 'solo_criticas', label: 'Solo alertas críticas', default: false },
-        ]}
-        onExport={handleExportPDF}
-      />
 
       <main className="flex-1 overflow-y-auto px-4 py-5 max-w-3xl w-full mx-auto space-y-5">
 
@@ -295,7 +204,7 @@ export default function EstadoGeneral() {
           {[
             { label: 'Críticas',  value: criticas, color: 'text-red-400',   bg: 'bg-red-500/10 border-red-500/20' },
             { label: 'Urgentes',  value: urgentes, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
-            { label: 'Avisos',    value: avisos,   color: 'text-primary',   bg: 'bg-primary/10 border-primary/20' },
+            { label: 'Avisos',    value: avisos,   color: 'text-sky-400',   bg: 'bg-sky-500/10 border-sky-500/20' },
           ].map(k => (
             <div key={k.label} className={`rounded-xl border p-3 text-center ${k.bg}`}>
               <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{k.label}</p>
@@ -306,7 +215,7 @@ export default function EstadoGeneral() {
 
         {isLoading && (
           <div className="flex items-center justify-center py-16">
-            <span className="w-5 h-5 border-2 border-white/10 border-t-[#6d9b7d] rounded-full animate-spin" />
+            <span className="w-5 h-5 border-2 border-white/10 border-t-[#38bdf8] rounded-full animate-spin" />
           </div>
         )}
 
@@ -326,7 +235,7 @@ export default function EstadoGeneral() {
           return (
             <div key={sev}>
               <div className="flex items-center gap-2 mb-2">
-                <cfg.icon className="w-3.5 h-3.5" style={{ color: sev === 'critica' ? '#f87171' : sev === 'urgente' ? '#fbbf24' : '#6d9b7d' }} />
+                <cfg.icon className="w-3.5 h-3.5" style={{ color: sev === 'critica' ? '#f87171' : sev === 'urgente' ? '#fbbf24' : '#38bdf8' }} />
                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                   {cfg.label} — {grupo.length} alerta{grupo.length !== 1 ? 's' : ''}
                 </span>

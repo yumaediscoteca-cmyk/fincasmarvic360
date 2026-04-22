@@ -1,8 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
-import { logLiaEvento } from '@/utils/liaLogger';
-import { useCreatedBy } from '@/hooks/useCreatedBy';
-import { toast } from '@/hooks/use-toast';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -21,7 +18,7 @@ export const CATEGORIA_LABELS: Record<CategoriaPersonal, string> = {
 
 export const CATEGORIA_COLORS: Record<CategoriaPersonal, string> = {
   operario_campo:      '#22c55e',
-  encargado:           '#6d9b7d',
+  encargado:           '#40916c',
   conductor_maquinaria:'#fb923c',
   conductor_camion:    '#a78bfa',
 };
@@ -108,7 +105,6 @@ export function usePersonal(categoria?: CategoriaPersonal) {
 
 export function useAddPersonal() {
   const qc = useQueryClient();
-  const createdBy = useCreatedBy();
   return useMutation({
     mutationFn: async (payload: {
       nombre:           string;
@@ -140,26 +136,10 @@ export function useAddPersonal() {
       const { error } = await supabase.from('personal').insert({
         ...payload,
         codigo_interno,
-        created_by: createdBy,
       });
       if (error) throw error;
     },
-    onSuccess: (_, payload) => {
-      try {
-        logLiaEvento('personal', 'alta_personal', {
-          categoria: payload.categoria ?? null,
-          nombre: payload.nombre ?? null,
-          dni: payload.dni ?? null,
-        });
-      } catch (e) {
-        // silent
-      }
-      qc.invalidateQueries({ queryKey: ['personal'] });
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['personal'] }),
   });
 }
 
@@ -171,10 +151,6 @@ export function useUpdatePersonal() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['personal'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -186,10 +162,6 @@ export function useDeletePersonal() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['personal'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -211,7 +183,6 @@ export function usePersonalExterno() {
 }
 
 export function useAddPersonalExterno() {
-  const createdByExt = useCreatedBy();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: {
@@ -239,15 +210,10 @@ export function useAddPersonalExterno() {
       const { error } = await supabase.from('personal_externo').insert({
         ...payload,
         codigo_interno,
-        created_by: createdByExt,
       });
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['personal_externo'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -259,10 +225,6 @@ export function useUpdatePersonalExterno() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['personal_externo'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -274,10 +236,6 @@ export function useDeletePersonalExterno() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['personal_externo'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -307,10 +265,6 @@ export function useAddTipoTrabajoPersonal() {
       if (error) throw error;
     },
     onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['personal_tipos_trabajo', vars.personal_id] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -326,10 +280,6 @@ export function useRemoveTipoTrabajoPersonal() {
       if (error) throw error;
     },
     onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['personal_tipos_trabajo', vars.personal_id] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -363,10 +313,6 @@ export function useAddTipoTrabajoCatalogo() {
       return data as TipoTrabajoCatalogo;
     },
     onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['catalogo_tipos_trabajo', vars.categoria] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 

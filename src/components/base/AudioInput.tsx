@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 
 interface AudioInputProps {
   value: string
@@ -8,15 +8,12 @@ interface AudioInputProps {
   rows?: number
 }
 
-type SpeechRecInstance = {
-  lang: string
-  interimResults: boolean
-  maxAlternatives: number
-  start: () => void
-  stop: () => void
-  onresult: ((ev: { results: { 0: { 0: { transcript: string } } } }) => void) | null
-  onerror: ((ev: { error: string }) => void) | null
-  onend: (() => void) | null
+// Extiende Window para reconocimiento de voz (no estándar en todos los navegadores)
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition
+    webkitSpeechRecognition: typeof SpeechRecognition
+  }
 }
 
 export default function AudioInput({
@@ -27,24 +24,14 @@ export default function AudioInput({
   rows = 3,
 }: AudioInputProps) {
   const [recording, setRecording] = useState(false)
-  const [dictadoError, setDictadoError] = useState<string | null>(null)
-  const recognitionRef = useRef<SpeechRecInstance | null>(null)
-  /** Evita cierre obsoleto: onresult se dispara después y el `value` del render del click estaría desactualizado. */
-  const valueRef = useRef(value)
-  useEffect(() => {
-    valueRef.current = value
-  }, [value])
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
 
-  const SpeechAPI: (new () => SpeechRecInstance) | null =
+  const SpeechAPI =
     typeof window !== 'undefined'
-      ? ((window as unknown as { SpeechRecognition?: new () => SpeechRecInstance; webkitSpeechRecognition?: new () => SpeechRecInstance })
-          .SpeechRecognition ||
-        (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecInstance }).webkitSpeechRecognition ||
-        null)
+      ? window.SpeechRecognition || window.webkitSpeechRecognition
       : null
 
   function startDictation() {
-    setDictadoError(null)
     if (!SpeechAPI) return
     if (recording) {
       recognitionRef.current?.stop()
@@ -56,21 +43,13 @@ export default function AudioInput({
     rec.interimResults = false
     rec.maxAlternatives = 1
 
-    rec.onresult = event => {
+    rec.onresult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript
-      const prev = valueRef.current
-      onChange(prev ? `${prev} ${transcript}` : transcript)
+      onChange(value ? value + ' ' + transcript : transcript)
     }
 
-    rec.onerror = ev => {
+    rec.onerror = () => {
       setRecording(false)
-      const msg =
-        ev.error === 'not-allowed'
-          ? 'Permiso de micrófono denegado (revisa ajustes del navegador).'
-          : ev.error === 'no-speech'
-            ? 'No se detectó voz. Prueba de nuevo.'
-            : `Dictado: ${ev.error}`
-      setDictadoError(msg)
     }
 
     rec.onend = () => {
@@ -78,13 +57,8 @@ export default function AudioInput({
     }
 
     recognitionRef.current = rec
-    try {
-      rec.start()
-      setRecording(true)
-    } catch {
-      setDictadoError('No se pudo iniciar el dictado.')
-      setRecording(false)
-    }
+    rec.start()
+    setRecording(true)
   }
 
   return (
@@ -99,7 +73,7 @@ export default function AudioInput({
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           rows={rows}
-          className="w-full rounded border border-input bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/25 resize-y pr-10"
+          className="w-full rounded border border-slate-600 bg-slate-800 text-slate-100 px-3 py-2 text-sm focus:outline-none focus:border-sky-400 resize-y pr-10"
         />
 
         {SpeechAPI && (
@@ -134,10 +108,7 @@ export default function AudioInput({
       </div>
 
       {recording && (
-        <p className="text-xs text-primary">Escuchando… (pulsa el micrófono para detener)</p>
-      )}
-      {dictadoError && !recording && (
-        <p className="text-xs text-amber-400">{dictadoError}</p>
+        <p className="text-xs text-red-400">Escuchando... (pulsa el icono para detener)</p>
       )}
     </div>
   )

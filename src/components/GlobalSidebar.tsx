@@ -4,7 +4,6 @@ import { Menu, X, ChevronRight } from 'lucide-react';
 import { useSidebar } from '../context/SidebarContext';
 import { useTheme } from '../context/ThemeContext';
 import { NAV_ITEMS } from '../constants/navItems';
-import { useStability } from '@/stability';
 
 // Devuelve el id del módulo raíz que contiene la ruta actual
 function getActiveRootId(pathname: string): string | null {
@@ -29,13 +28,8 @@ export default function GlobalSidebar() {
   const location = useLocation();
   const navRef = useRef<HTMLElement>(null);
   const activeItemRef = useRef<HTMLDivElement>(null);
-  const { pendingQueueCount, queueErrorCount } = useStability();
 
   const isDark = theme === 'dark';
-  const queueTitle =
-    pendingQueueCount > 0
-      ? `${pendingQueueCount} envío(s) en cola${queueErrorCount ? ` · ${queueErrorCount} con error` : ''}`
-      : '';
 
   // Accordion: id del módulo raíz expandido
   const [openId, setOpenId] = useState<string | null>(
@@ -108,38 +102,21 @@ export default function GlobalSidebar() {
       {/* Botón hamburguesa */}
       <button
         onClick={toggle}
-        className="fixed z-chrome flex items-center justify-center w-10 h-10 rounded-lg
-          top-[max(0.75rem,env(safe-area-inset-top))] left-[max(0.75rem,env(safe-area-inset-left))]
-          backdrop-blur-sm border border-border bg-card/95 text-foreground hover:bg-muted transition-colors duration-200"
+        className={`fixed top-3 left-3 z-[60] flex items-center justify-center w-10 h-10 rounded-lg
+          backdrop-blur-sm border transition-colors duration-200
+          ${isDark
+            ? 'bg-slate-900/95 hover:bg-slate-800 text-slate-200 border-slate-700'
+            : 'bg-slate-100/95 hover:bg-slate-200 text-slate-700 border-slate-300'
+          }`}
         aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}
-        title={queueTitle || undefined}
       >
         {isOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
-      {pendingQueueCount > 0 && (
-        <span
-          className={`fixed z-chrome pointer-events-none text-[10px] font-bold tabular-nums leading-none px-1.5 py-0.5 rounded
-            top-[max(0.75rem,env(safe-area-inset-top))] left-[max(3.25rem,calc(0.75rem+2.5rem+0.25rem+env(safe-area-inset-left)))]
-            ${queueErrorCount > 0
-              ? isDark
-                ? 'bg-amber-500/25 text-amber-200 border border-amber-500/40'
-                : 'bg-amber-100 text-amber-900 border border-amber-400/60'
-              : isDark
-                ? 'bg-muted text-muted-foreground border border-border'
-                : 'bg-muted text-muted-foreground border border-border'
-            }`}
-          title={queueTitle}
-          aria-live="polite"
-        >
-          {pendingQueueCount}
-        </span>
-      )}
-
       {/* Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-sidebar-backdrop transition-opacity duration-200"
+          className="fixed inset-0 bg-black/60 z-[70] transition-opacity duration-200"
           onClick={close}
           aria-hidden="true"
         />
@@ -147,21 +124,30 @@ export default function GlobalSidebar() {
 
       {/* Panel lateral */}
       <div
-        className={`fixed top-0 left-0 h-full w-72 z-sidebar flex flex-col
-          pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
+        className={`fixed top-0 left-0 h-full w-72 z-[80] flex flex-col
           transition-transform duration-300 ease-in-out
-          bg-sidebar text-sidebar-foreground border-r border-sidebar-border
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          ${isDark
+            ? 'bg-slate-950 border-r border-slate-700/80'
+            : 'bg-slate-50 border-r border-slate-300'
+          }`}
       >
         {/* Cabecera */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-sidebar-border shrink-0">
-          <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-sidebar-foreground">
+        <div className={`flex items-center justify-between px-4 py-4 border-b shrink-0
+          ${isDark ? 'border-slate-700/80' : 'border-slate-300'}`}
+        >
+          <span className={`text-xs font-semibold tracking-widest uppercase
+            ${isDark ? 'text-slate-300' : 'text-slate-600'}`}
+          >
             Agrícola Marvic 360
           </span>
           <button
             onClick={close}
-            className="flex items-center justify-center w-8 h-8 rounded transition-colors duration-200
-              text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+            className={`flex items-center justify-center w-8 h-8 rounded transition-colors duration-200
+              ${isDark
+                ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                : 'hover:bg-slate-200 text-slate-500 hover:text-slate-800'
+              }`}
             aria-label="Cerrar menú"
           >
             <X size={18} />
@@ -200,8 +186,12 @@ export default function GlobalSidebar() {
                     ${!item.activo
                       ? 'opacity-35 cursor-not-allowed border-transparent'
                       : isActive
-                        ? 'bg-sidebar-accent border-transparent'
-                        : 'hover:bg-sidebar-accent/60 border-transparent'
+                        ? isDark
+                          ? 'bg-slate-800/80 border-transparent'
+                          : 'bg-slate-200/90 border-transparent'
+                        : isDark
+                          ? 'hover:bg-slate-800/50 border-transparent'
+                          : 'hover:bg-slate-100/80 border-transparent'
                     }`}
                   style={isActive && item.activo ? { borderLeftColor: item.color } : undefined}
                 >
@@ -210,17 +200,22 @@ export default function GlobalSidebar() {
                     <Icon
                       size={18}
                       style={{ color: item.activo ? item.color : undefined }}
-                      className={!item.activo ? 'text-muted-foreground/50' : ''}
+                      className={!item.activo
+                        ? isDark ? 'text-slate-600' : 'text-slate-400'
+                        : ''
+                      }
                     />
                   </span>
 
                   {/* Label */}
                   <span className={`text-sm font-semibold flex-1 leading-none
                     ${!item.activo
-                      ? 'text-muted-foreground/50'
+                      ? isDark ? 'text-slate-600' : 'text-slate-400'
                       : isActive
-                        ? 'text-sidebar-foreground'
-                        : 'text-muted-foreground group-hover:text-sidebar-foreground'
+                        ? isDark ? 'text-white' : 'text-slate-900'
+                        : isDark
+                          ? 'text-slate-300 group-hover:text-slate-100'
+                          : 'text-slate-700 group-hover:text-slate-900'
                     }`}
                   >
                     {item.label}
@@ -228,7 +223,11 @@ export default function GlobalSidebar() {
 
                   {/* WIP badge */}
                   {!item.activo && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground"
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium
+                      ${isDark
+                        ? 'bg-slate-800 text-slate-500'
+                        : 'bg-slate-200 text-slate-400'
+                      }`}
                     >
                       WIP
                     </span>
@@ -240,9 +239,12 @@ export default function GlobalSidebar() {
                       role="button"
                       aria-label={isExpanded ? 'Colapsar' : 'Expandir'}
                       onClick={(e) => handleChevronClick(e, item)}
-                      className="shrink-0 flex items-center justify-center w-5 h-5 rounded
+                      className={`shrink-0 flex items-center justify-center w-5 h-5 rounded
                         transition-colors duration-150
-                        text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+                        ${isDark
+                          ? 'hover:bg-slate-700 text-slate-500 hover:text-slate-300'
+                          : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'
+                        }`}
                     >
                       <ChevronRight
                         size={14}
@@ -263,7 +265,10 @@ export default function GlobalSidebar() {
 
                 {/* Hijos (accordion) */}
                 {hasChildren && isExpanded && (
-                  <div className="ml-7 border-l border-sidebar-border/80">
+                  <div
+                    className={`ml-7 border-l
+                      ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`}
+                  >
                     {item.children!.map(child => {
                       const childActive =
                         location.pathname === child.ruta ||
@@ -277,8 +282,12 @@ export default function GlobalSidebar() {
                           className={`w-full flex items-center gap-2.5 pl-3 pr-4 py-2 text-left
                             transition-all duration-200 ease-in-out group
                             ${childActive
-                              ? 'bg-sidebar-accent'
-                              : 'hover:bg-sidebar-accent/50'
+                              ? isDark
+                                ? 'bg-slate-800/60'
+                                : 'bg-slate-200/60'
+                              : isDark
+                                ? 'hover:bg-slate-800/40'
+                                : 'hover:bg-slate-100/80'
                             }`}
                         >
                           <span className="shrink-0 flex items-center justify-center w-4 h-4">
@@ -288,14 +297,18 @@ export default function GlobalSidebar() {
                               className={
                                 childActive
                                   ? ''
-                                  : 'text-muted-foreground group-hover:text-sidebar-foreground'
+                                  : isDark
+                                    ? 'text-slate-600 group-hover:text-slate-400'
+                                    : 'text-slate-400 group-hover:text-slate-600'
                               }
                             />
                           </span>
                           <span className={`text-xs font-medium flex-1
                             ${childActive
-                              ? 'text-sidebar-foreground'
-                              : 'text-muted-foreground group-hover:text-sidebar-foreground'
+                              ? isDark ? 'text-white' : 'text-slate-900'
+                              : isDark
+                                ? 'text-slate-400 group-hover:text-slate-200'
+                                : 'text-slate-500 group-hover:text-slate-800'
                             }`}
                           >
                             {child.label}
@@ -317,7 +330,12 @@ export default function GlobalSidebar() {
         </nav>
 
         {/* Pie */}
-        <div className="px-4 py-3 border-t border-sidebar-border text-xs shrink-0 text-muted-foreground">
+        <div className={`px-4 py-3 border-t text-xs shrink-0
+          ${isDark
+            ? 'border-slate-700/80 text-slate-600'
+            : 'border-slate-300 text-slate-400'
+          }`}
+        >
           v4.0
         </div>
       </div>

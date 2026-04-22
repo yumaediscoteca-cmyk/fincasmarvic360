@@ -1,25 +1,16 @@
-
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, X, Clock, History, Plus, Package, AlertCircle,
   FlaskConical, Droplets, Layers, Wind, Wrench, Tractor, FileText, MoveRight,
-  Trash2, Cog, ChevronDown,
+  Trash2, Cog,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import {
-  generarPDFCorporativoBase,
-  pdfCorporateSection,
-  loadPdfImage,
-  PDF_BRAND,
-  PDF_MARGIN,
-  PDF_TEXT_W,
-} from '@/utils/pdfUtils'
-import { toast } from '@/hooks/use-toast'
+import jsPDF from 'jspdf'
 import {
   useUbicaciones, useCategorias, useUltimoRegistro,
-  useRegistros, useAddRegistro, useUpdateRegistro,
+  useRegistros, useAddRegistro,
   useProductosCatalogo, useAddProductoCatalogo, useAddMovimiento,
   useActivosEnUbicacionVista, useInventarioUbicacionActivosAll,
   useAperosTablaInventario, useAssignActivoUbicacion, useRemoveActivoUbicacion,
@@ -79,7 +70,6 @@ export default function InventarioUbicacion() {
   const [activeCatId, setActiveCatId] = useState<string | null>(null)
   const [panelView,   setPanelView]   = useState<PanelView>('estado')
   const [showModal,   setShowModal]   = useState(false)
-  const [editRegistro, setEditRegistro] = useState<RegistroConCategoria | null>(null)
   const [now, setNow]                 = useState(new Date())
 
   // ── Form state ───────────────────────────────────────────────
@@ -147,7 +137,6 @@ export default function InventarioUbicacion() {
   const { data: registros   = [] }  = useRegistros(ubicacionId ?? null, activeCatId)
   const { data: productos   = [] }  = useProductosCatalogo(activeCatId)
   const addRegistro                 = useAddRegistro()
-  const updateRegistro              = useUpdateRegistro()
   const addProductoCatalogo         = useAddProductoCatalogo()
   const addMovimiento               = useAddMovimiento()
   const { data: activosVista = [] } = useActivosEnUbicacionVista(ubicacionId ?? null)
@@ -175,7 +164,6 @@ export default function InventarioUbicacion() {
       setActiveCatId(id)
       setPanelView('estado')
       setShowModal(false)
-      setEditRegistro(null)
     }
   }
 
@@ -186,7 +174,6 @@ export default function InventarioUbicacion() {
   }
 
   function openModal() {
-    setEditRegistro(null)
     setCantidad('')
     setUnidad('kg')
     setDescripcion('')
@@ -200,24 +187,6 @@ export default function InventarioUbicacion() {
     setFotoFile2(null)
     setPreview2(null)
     setResponsable('')
-    setShowModal(true)
-  }
-
-  function openModalEdit(r: RegistroConCategoria) {
-    setEditRegistro(r)
-    setCantidad(String(r.cantidad))
-    setUnidad(r.unidad)
-    setDescripcion(r.descripcion ?? '')
-    setNotas(r.notas ?? '')
-    setFotoFile(null)
-    setPreview(r.foto_url)
-    setFotoFile2(null)
-    setPreview2(r.foto_url_2 ?? null)
-    setProductoId(r.producto_id ?? '')
-    setProductoNombre('')
-    setPrecioUnitario(r.precio_unitario != null ? String(r.precio_unitario) : '')
-    setResponsable(r.created_by ?? '')
-    setSubmitError(null)
     setShowModal(true)
   }
 
@@ -242,15 +211,15 @@ export default function InventarioUbicacion() {
   }
 
   const tractoresLibres = tractores.filter(t => {
-    const a = todasAsign.find((x: any) => x.maquinaria_tractor_id === t.id)
+    const a = todasAsign.find(x => x.maquinaria_tractor_id === t.id)
     return !a
   })
   const aperosLibres = aperosInv.filter(ap => {
-    const x = todasAsign.find((y: any) => y.apero_id === ap.id)
+    const x = todasAsign.find(y => y.apero_id === ap.id)
     return !x
   })
   const maquinariaAperosLibres = maqAperosCat.filter(a => {
-    const x = todasAsign.find((y: any) => y.maquinaria_apero_id === a.id)
+    const x = todasAsign.find(y => y.maquinaria_apero_id === a.id)
     return !x
   })
 
@@ -277,7 +246,7 @@ export default function InventarioUbicacion() {
         maquinaria_tractor_id: activoTab === 'tractor' ? selTractorId : null,
         apero_id: activoTab === 'apero' ? selAperoId : null,
         maquinaria_apero_id: activoTab === 'maquinaria_apero' ? selMaquinariaAperoId : null,
-      } as any)
+      })
       setShowActivoModal(false)
     } catch (err: unknown) {
       const raw = err instanceof Error ? err.message : String(err)
@@ -304,7 +273,10 @@ export default function InventarioUbicacion() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!ubicacionId || !activeCatId || !cantidad) return
-    // Modo piloto: foto del lote en fitos es opcional (warning no bloqueante)
+    if (isFito && !fotoFile2) {
+      setSubmitError('La foto del lote / código de barras es obligatoria para fitosanitarios')
+      return
+    }
     setSubmitting(true)
     setSubmitError(null)
 
@@ -325,60 +297,40 @@ export default function InventarioUbicacion() {
         resolvedProductoId = productoId
       }
 
-      // 2. Fotos (nuevo archivo, conservar existentes o borrar si el usuario quitó la vista previa)
+      // 2. Subir foto 1
       let foto_url: string | null = null
       if (fotoFile) {
         const ext  = fotoFile.name.split('.').pop() ?? 'jpg'
         const path = `${ubicacionId}/${activeCatId}/${Date.now()}.${ext}`
         foto_url = await uploadImage(fotoFile, 'inventario-images', path, false)
         if (!foto_url) throw new Error('Error subiendo foto 1')
-      } else if (editRegistro) {
-        foto_url = preview ? editRegistro.foto_url ?? null : null
       }
 
+      // 3. Subir foto 2 (lote/código de barras, solo fitos)
       let foto_url_2: string | null = null
       if (fotoFile2) {
         const ext  = fotoFile2.name.split('.').pop() ?? 'jpg'
         const path = `${ubicacionId}/${activeCatId}/lote_${Date.now()}.${ext}`
         foto_url_2 = await uploadImage(fotoFile2, 'inventario-images', path, false)
         if (!foto_url_2) throw new Error('Error subiendo foto 2')
-      } else if (editRegistro) {
-        foto_url_2 = preview2 ? editRegistro.foto_url_2 ?? null : null
       }
 
-      if (editRegistro) {
-        await updateRegistro.mutateAsync({
-          id: editRegistro.id,
-          ubicacion_id: ubicacionId,
-          categoria_id: activeCatId,
-          cantidad: parseFloat(cantidad),
-          unidad,
-          descripcion: descripcion || null,
-          notas: notas || null,
-          foto_url,
-          foto_url_2,
-          precio_unitario: precioUnitario ? parseFloat(precioUnitario) : null,
-          producto_id: resolvedProductoId,
-          created_by: responsable || null,
-        })
-      } else {
-        await addRegistro.mutateAsync({
-          ubicacion_id:    ubicacionId,
-          categoria_id:    activeCatId,
-          cantidad:        parseFloat(cantidad),
-          unidad,
-          descripcion:     descripcion     || null,
-          notas:           notas           || null,
-          foto_url,
-          foto_url_2,
-          precio_unitario: precioUnitario ? parseFloat(precioUnitario) : null,
-          producto_id:     resolvedProductoId,
-          created_by:      responsable     || null,
-        })
-      }
+      // 4. Insertar registro
+      await addRegistro.mutateAsync({
+        ubicacion_id:    ubicacionId,
+        categoria_id:    activeCatId,
+        cantidad:        parseFloat(cantidad),
+        unidad,
+        descripcion:     descripcion     || null,
+        notas:           notas           || null,
+        foto_url,
+        foto_url_2,
+        precio_unitario: precioUnitario ? parseFloat(precioUnitario) : null,
+        producto_id:     resolvedProductoId,
+        created_by:      responsable     || null,
+      })
 
       setShowModal(false)
-      setEditRegistro(null)
       setPanelView('estado')
 
     } catch (err: unknown) {
@@ -542,112 +494,160 @@ export default function InventarioUbicacion() {
     setPdfError(null)
 
     try {
+      const doc    = new jsPDF()
+      const margin = 15
+      const maxW   = 180
+      let y        = 25
+      const lh     = 6
+
+      async function loadImage(url: string): Promise<{ data: string; w: number; h: number } | null> {
+        try {
+          const res  = await fetch(url)
+          const blob = await res.blob()
+          return await new Promise(resolve => {
+            const img = new Image()
+            img.crossOrigin = 'anonymous'
+            img.onload = () => {
+              const canvas = document.createElement('canvas')
+              canvas.width  = img.naturalWidth
+              canvas.height = img.naturalHeight
+              const ctx = canvas.getContext('2d')!
+              ctx.fillStyle = '#ffffff'
+              ctx.fillRect(0, 0, canvas.width, canvas.height)
+              ctx.drawImage(img, 0, 0)
+              const data = canvas.toDataURL('image/jpeg', 0.8)
+              URL.revokeObjectURL(img.src)
+              resolve({ data, w: img.naturalWidth, h: img.naturalHeight })
+            }
+            img.onerror = () => resolve(null)
+            img.src = URL.createObjectURL(blob)
+          })
+        } catch {
+          return null
+        }
+      }
+
+      // Cargar logo una sola vez
+      const logo = await loadImage('/MARVIC_logo.png')
+
+      function addLogoToPage() {
+        if (!logo) return
+        const lw = 38
+        const lh2 = lw * (logo.h / logo.w)
+        doc.addImage(logo.data, 'JPEG', 210 - margin - lw, 6, lw, lh2)
+      }
+
+      function checkPage() {
+        if (y > 272) {
+          doc.addPage()
+          addLogoToPage()
+          y = 25
+        }
+      }
+
+      function writeLine(text: string, bold = false, size = 10) {
+        doc.setFontSize(size)
+        doc.setFont('helvetica', bold ? 'bold' : 'normal')
+        const lines = doc.splitTextToSize(text, maxW) as string[]
+        for (const l of lines) {
+          checkPage()
+          doc.text(l, margin, y)
+          y += lh
+        }
+      }
+
+      function separator() {
+        checkPage()
+        doc.setDrawColor(160)
+        doc.line(margin, y, margin + maxW, y)
+        y += lh
+      }
+
+      async function addPhoto(url: string | null) {
+        if (!url) return
+        const img = await loadImage(url)
+        if (!img) return
+        writeLine('Foto adjunta:')
+        const imgW = 80
+        const imgH = imgW * (img.h / img.w)
+        if (y + imgH > 272) { doc.addPage(); addLogoToPage(); y = 25 }
+        doc.addImage(img.data, 'JPEG', margin, y, imgW, imgH)
+        y += imgH + 4
+      }
+
+      // Logo primera página
+      addLogoToPage()
+
+      // ── Cabecera ─────────────────────────────────────────────
+      writeLine('INVENTARIO DE ACTIVOS FISICOS — AGRICOLA MARVIC 360', true, 13)
+      y += 2
+      writeLine(`Ubicacion: ${ubicacion.nombre}`)
+      writeLine(`Generado el: ${new Date().toLocaleString('es-ES')}`)
+
+      if (informeTipo === 'historico') {
+        writeLine(`Periodo: ${informeFechaInicio} a ${informeFechaFin}`)
+      } else if (informeTipo === 'categoria') {
+        const cat = categorias.find(c => c.id === informeCategoria)
+        writeLine(`Categoria: ${cat?.nombre ?? ''}`)
+        writeLine(`Periodo: ${informeFechaInicio} a ${informeFechaFin}`)
+      } else {
+        writeLine(`Stock a 01/${String(informeMes).padStart(2, '0')}/${informeAnio}`)
+      }
+
+      y += 2
+      separator()
+
+      // ── Datos ────────────────────────────────────────────────
       const groups = await fetchGruposInforme()
-      const slug = ubicacion.nombre.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 25)
+      let totalGeneral = 0
+
+      if (groups.size === 0) {
+        writeLine('Sin registros en el periodo seleccionado.')
+      }
+
+      for (const [, g] of groups) {
+        writeLine(g.nombre.toUpperCase(), true, 11)
+        y += 1
+        let totalSeccion = 0
+
+        for (const r of g.rows) {
+          writeLine(`  Fecha: ${formatFecha(r.created_at)}`)
+          writeLine(`  Cantidad: ${r.cantidad} ${r.unidad}`)
+          if (r.descripcion) writeLine(`  Descripcion: ${r.descripcion}`)
+          if (r.precio_unitario != null) {
+            const imp = r.cantidad * r.precio_unitario
+            totalSeccion += imp
+            writeLine(`  Precio: ${fmtEur(r.precio_unitario)}/unidad  —  Importe: ${fmtEur(imp)}`)
+          }
+          if (r.notas) writeLine(`  Notas: ${r.notas}`)
+          await addPhoto(r.foto_url)
+          if (r.foto_url_2) await addPhoto(r.foto_url_2)
+          y += 2
+        }
+
+        if (totalSeccion > 0) {
+          y += 1
+          writeLine(`  TOTAL ${g.nombre.toUpperCase()}: ${fmtEur(totalSeccion)}`, true)
+          totalGeneral += totalSeccion
+        }
+        y += 3
+      }
+
+      // ── Total general ─────────────────────────────────────────
+      if (totalGeneral > 0) {
+        y += 2
+        separator()
+        writeLine(`TOTAL GENERAL: ${fmtEur(totalGeneral)}`, true, 12)
+      }
+
+      // ── Descarga ─────────────────────────────────────────────
+      const slug  = ubicacion.nombre.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 25)
       const fecha = new Date().toISOString().slice(0, 10)
-
-      await generarPDFCorporativoBase({
-        titulo: 'INVENTARIO DE ACTIVOS',
-        subtitulo: ubicacion.nombre,
-        fecha: new Date(),
-        filename: `inventario_${slug}_${fecha}.pdf`,
-        bloques: [
-          async ctx => {
-            const doc = ctx.doc
-            doc.setFontSize(9)
-            doc.setFont('helvetica', 'normal')
-            doc.setTextColor(...PDF_BRAND.muted)
-            doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, PDF_MARGIN, ctx.y)
-            ctx.y += 5
-            if (informeTipo === 'historico') {
-              doc.text(`Periodo: ${informeFechaInicio} a ${informeFechaFin}`, PDF_MARGIN, ctx.y)
-            } else if (informeTipo === 'categoria') {
-              const cat = categorias.find(c => c.id === informeCategoria)
-              doc.text(`Categoría: ${cat?.nombre ?? ''} · ${informeFechaInicio} a ${informeFechaFin}`, PDF_MARGIN, ctx.y)
-            } else {
-              doc.text(`Stock a 01/${String(informeMes).padStart(2, '0')}/${informeAnio}`, PDF_MARGIN, ctx.y)
-            }
-            ctx.y += 8
-
-            let totalGeneral = 0
-            if (groups.size === 0) {
-              doc.setTextColor(...PDF_BRAND.green)
-              doc.text('Sin registros en el periodo seleccionado.', PDF_MARGIN, ctx.y)
-              return
-            }
-
-            async function addPhotoPdf(url: string | null) {
-              if (!url) return
-              const img = await loadPdfImage(url)
-              if (!img) return
-              ctx.checkPage(14)
-              doc.setFontSize(8)
-              doc.setTextColor(...PDF_BRAND.muted)
-              doc.text('Fotografía:', PDF_MARGIN, ctx.y)
-              ctx.y += 4
-              const imgW = 80
-              const imgH = Math.min(imgW * (img.natH / img.natW), 95)
-              ctx.checkPage(imgH + 4)
-              doc.addImage(img.b64, 'JPEG', PDF_MARGIN, ctx.y, imgW, imgH)
-              ctx.y += imgH + 5
-            }
-
-            for (const [, g] of groups) {
-              pdfCorporateSection(ctx, g.nombre)
-              let totalSeccion = 0
-              for (const r of g.rows) {
-                doc.setFontSize(8)
-                doc.setFont('helvetica', 'normal')
-                doc.setTextColor(...PDF_BRAND.green)
-                const bloquesTxt = [
-                  `  Fecha: ${formatFecha(r.created_at)}`,
-                  `  Cantidad: ${r.cantidad} ${r.unidad}`,
-                  ...(r.descripcion ? [`  Descripción: ${r.descripcion}`] : []),
-                ]
-                if (r.precio_unitario != null) {
-                  const imp = r.cantidad * r.precio_unitario
-                  totalSeccion += imp
-                  bloquesTxt.push(`  Precio: ${fmtEur(r.precio_unitario)}/unidad  —  Importe: ${fmtEur(imp)}`)
-                }
-                if (r.notas) bloquesTxt.push(`  Notas: ${r.notas}`)
-                for (const t of bloquesTxt) {
-                  const lines = doc.splitTextToSize(t, PDF_TEXT_W) as string[]
-                  for (const ln of lines) {
-                    ctx.checkPage(4)
-                    doc.text(ln, PDF_MARGIN, ctx.y)
-                    ctx.y += 4
-                  }
-                }
-                await addPhotoPdf(r.foto_url)
-                await addPhotoPdf(r.foto_url_2)
-                ctx.y += 2
-              }
-              if (totalSeccion > 0) {
-                ctx.checkPage(6)
-                doc.setFont('helvetica', 'bold')
-                doc.setFontSize(9)
-                doc.text(`  TOTAL ${g.nombre.toUpperCase()}: ${fmtEur(totalSeccion)}`, PDF_MARGIN, ctx.y)
-                ctx.y += 6
-                totalGeneral += totalSeccion
-              }
-              ctx.y += 2
-            }
-            if (totalGeneral > 0) {
-              ctx.separator()
-              doc.setFont('helvetica', 'bold')
-              doc.setFontSize(11)
-              doc.setTextColor(...PDF_BRAND.green)
-              doc.text(`TOTAL GENERAL: ${fmtEur(totalGeneral)}`, PDF_MARGIN, ctx.y)
-            }
-          },
-        ],
-      })
+      doc.save(`inventario_${slug}_${fecha}.pdf`)
       setShowInformeModal(false)
-      toast({ title: 'PDF generado', description: 'Informe de ubicación descargado.' })
+
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error generando el PDF'
-      setPdfError(msg)
-      toast({ title: 'Error al generar el PDF', description: msg, variant: 'destructive' })
+      setPdfError(err instanceof Error ? err.message : 'Error generando el PDF')
     } finally {
       setGenerandoPDF(false)
     }
@@ -711,7 +711,7 @@ export default function InventarioUbicacion() {
 
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="h-screen w-screen relative overflow-hidden bg-background text-foreground">
+    <div className="h-screen w-screen relative overflow-hidden bg-[#020617]">
 
       {/* ── FONDO — LOGO WATERMARK ─────────────────────────── */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
@@ -724,7 +724,7 @@ export default function InventarioUbicacion() {
 
       {/* ── PANEL IDENTIDAD ────────────────────────────────── */}
       <div className="absolute top-4 left-4 z-[1000] bg-slate-900/90 border border-white/10 rounded-lg px-4 py-3 min-w-[200px] max-w-[260px]">
-        <p className="text-[10px] font-black text-[#6d9b7d] uppercase tracking-[0.3em] mb-1">
+        <p className="text-[10px] font-black text-[#38bdf8] uppercase tracking-[0.3em] mb-1">
           Marvic 360 · Inventario
         </p>
         <p className="text-sm font-black text-white uppercase tracking-tight leading-tight">
@@ -740,7 +740,7 @@ export default function InventarioUbicacion() {
       {/* ── BOTÓN VOLVER ───────────────────────────────────── */}
       <button
         onClick={() => navigate('/inventario')}
-        className="absolute top-4 left-[276px] z-[1000] w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center bg-slate-900/90 hover:border-[#6d9b7d]/40 transition-colors"
+        className="absolute top-4 left-[276px] z-[1000] w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center bg-slate-900/90 hover:border-[#38bdf8]/40 transition-colors"
       >
         <ArrowLeft className="w-4 h-4 text-slate-400" />
       </button>
@@ -755,8 +755,8 @@ export default function InventarioUbicacion() {
               onClick={() => handleSelectCat(cat.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                 activeCatId === cat.id
-                  ? 'bg-[#6d9b7d]/20 border-[#6d9b7d]/60 text-[#6d9b7d]'
-                  : 'bg-slate-900/90 border-white/10 text-slate-300 hover:border-[#6d9b7d]/30 hover:text-[#6d9b7d]'
+                  ? 'bg-[#38bdf8]/20 border-[#38bdf8]/60 text-[#38bdf8]'
+                  : 'bg-slate-900/90 border-white/10 text-slate-300 hover:border-[#38bdf8]/30 hover:text-[#38bdf8]'
               }`}
             >
               <Icon className="w-3.5 h-3.5 shrink-0" />
@@ -770,7 +770,7 @@ export default function InventarioUbicacion() {
         <div className="relative">
           <button
             onClick={() => setShowPdfMenu(v => !v)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap bg-slate-900/90 border-white/10 text-slate-300 hover:border-[#6d9b7d]/30 hover:text-[#6d9b7d] w-full"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap bg-slate-900/90 border-white/10 text-slate-300 hover:border-[#38bdf8]/30 hover:text-[#38bdf8] w-full"
           >
             <FileText className="w-3.5 h-3.5 shrink-0" />
             Informes PDF
@@ -786,7 +786,7 @@ export default function InventarioUbicacion() {
                 <button
                   key={tipo}
                   onClick={() => { setInformeTipo(tipo); setPdfError(null); setShowInformeModal(true); setShowPdfMenu(false); }}
-                  className="w-full text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:bg-[#6d9b7d]/10 hover:text-[#6d9b7d] transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:bg-[#38bdf8]/10 hover:text-[#38bdf8] transition-colors"
                 >
                   {label}
                 </button>
@@ -794,7 +794,7 @@ export default function InventarioUbicacion() {
               <div className="w-full h-px bg-white/10" />
               <button
                 onClick={() => { setInformeTipo('historico'); setShowInformeModal(true); setShowPdfMenu(false); }}
-                className="w-full text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:bg-[#6d9b7d]/10 hover:text-[#6d9b7d] transition-colors"
+                className="w-full text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:bg-[#38bdf8]/10 hover:text-[#38bdf8] transition-colors"
               >
                 Exportar Excel
               </button>
@@ -809,7 +809,7 @@ export default function InventarioUbicacion() {
 
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
-            <span className="text-[11px] font-black text-[#6d9b7d] uppercase tracking-widest">
+            <span className="text-[11px] font-black text-[#38bdf8] uppercase tracking-widest">
               {activeCat.nombre}
             </span>
             <button onClick={() => setActiveCatId(null)}>
@@ -828,7 +828,7 @@ export default function InventarioUbicacion() {
                 onClick={() => setPanelView(id)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${
                   panelView === id
-                    ? 'border-[#6d9b7d] text-[#6d9b7d]'
+                    ? 'border-[#38bdf8] text-[#38bdf8]'
                     : 'border-transparent text-slate-500 hover:text-slate-300'
                 }`}
               >
@@ -870,7 +870,7 @@ export default function InventarioUbicacion() {
                   {ultimoRegistro.precio_unitario != null && (
                     <div className="bg-slate-800/40 rounded-lg p-3">
                       <p className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">Valor aprox.</p>
-                      <p className="text-lg font-black text-[#6d9b7d]">
+                      <p className="text-lg font-black text-[#38bdf8]">
                         {(ultimoRegistro.cantidad * ultimoRegistro.precio_unitario)
                           .toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </p>
@@ -927,7 +927,6 @@ export default function InventarioUbicacion() {
                       )}
                       <div className="flex justify-end mt-1">
                         <RecordActions
-                          onEdit={() => openModalEdit(r)}
                           onDelete={async () => {
                             if (!confirm('¿Eliminar este registro?')) return
                             await supabase.from('inventario_registros').delete().eq('id', r.id)
@@ -951,14 +950,14 @@ export default function InventarioUbicacion() {
           <div className="shrink-0 p-3 border-t border-white/10 flex gap-2">
             <button
               onClick={openModal}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#6d9b7d]/20 border border-[#6d9b7d]/40 hover:bg-[#6d9b7d]/30 transition-all text-[10px] font-black uppercase tracking-widest text-[#6d9b7d]"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#38bdf8]/20 border border-[#38bdf8]/40 hover:bg-[#38bdf8]/30 transition-all text-[10px] font-black uppercase tracking-widest text-[#38bdf8]"
             >
               <Plus className="w-3.5 h-3.5" />
               Añadir
             </button>
             <button
               onClick={openMoverModal}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-slate-800 border border-white/10 hover:border-[#6d9b7d]/30 hover:text-[#6d9b7d] transition-all text-[10px] font-black uppercase tracking-widest text-slate-400"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-slate-800 border border-white/10 hover:border-[#38bdf8]/30 hover:text-[#38bdf8] transition-all text-[10px] font-black uppercase tracking-widest text-slate-400"
             >
               <MoveRight className="w-3.5 h-3.5" />
               Mover
@@ -970,10 +969,10 @@ export default function InventarioUbicacion() {
 
       {/* ── STOCK ACTUAL POR CATEGORÍA ─────────────────────── */}
       {resumenUbic.length > 0 && (
-        <div className="absolute top-[84px] left-4 z-[997] w-[min(100%-2rem,22rem)] bg-slate-900/95 border border-[#6d9b7d]/20 rounded-lg overflow-hidden shadow-lg">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 bg-[#6d9b7d]/5">
-            <Package className="w-3.5 h-3.5 text-[#6d9b7d]" />
-            <span className="text-[10px] font-black text-[#6d9b7d] uppercase tracking-widest">Stock actual</span>
+        <div className="absolute top-[84px] left-4 z-[997] w-[min(100%-2rem,22rem)] bg-slate-900/95 border border-[#38bdf8]/20 rounded-lg overflow-hidden shadow-lg">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 bg-[#38bdf8]/5">
+            <Package className="w-3.5 h-3.5 text-[#38bdf8]" />
+            <span className="text-[10px] font-black text-[#38bdf8] uppercase tracking-widest">Stock actual</span>
           </div>
           <div className="px-3 py-2 space-y-1 max-h-[28vh] overflow-y-auto">
             {resumenUbic.map(r => {
@@ -990,7 +989,7 @@ export default function InventarioUbicacion() {
                       <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-green-500/40 text-green-400">Entrada reciente</span>
                     )}
                     {nEntradas > 0 && (
-                      <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-[#6d9b7d]/40 text-[#6d9b7d]">{nEntradas} entrada{nEntradas !== 1 ? 's' : ''}</span>
+                      <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-[#38bdf8]/40 text-[#38bdf8]">{nEntradas} entrada{nEntradas !== 1 ? 's' : ''}</span>
                     )}
                     <span className="text-[11px] font-black text-white">{r.cantidad} <span className="text-slate-500 font-normal">{r.unidad}</span></span>
                   </div>
@@ -1130,7 +1129,7 @@ export default function InventarioUbicacion() {
             {/* Header */}
             <div className="flex items-start justify-between px-5 py-4 border-b border-white/10 shrink-0">
               <div>
-                <p className="text-[11px] font-black text-[#6d9b7d] uppercase tracking-[0.3em]">
+                <p className="text-[11px] font-black text-[#38bdf8] uppercase tracking-[0.3em]">
                   Informe PDF
                 </p>
                 <p className="text-[10px] text-slate-500 mt-0.5">{ubicacion?.nombre}</p>
@@ -1155,7 +1154,7 @@ export default function InventarioUbicacion() {
                   onClick={() => setInformeTipo(id)}
                   className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${
                     informeTipo === id
-                      ? 'border-[#6d9b7d] text-[#6d9b7d]'
+                      ? 'border-[#38bdf8] text-[#38bdf8]'
                       : 'border-transparent text-slate-500 hover:text-slate-300'
                   }`}
                 >
@@ -1181,7 +1180,7 @@ export default function InventarioUbicacion() {
                       type="date"
                       value={informeFechaInicio}
                       onChange={e => setInformeFechaInicio(e.target.value)}
-                      className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6d9b7d]/50"
+                      className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]/50"
                     />
                   </div>
                   <div>
@@ -1192,7 +1191,7 @@ export default function InventarioUbicacion() {
                       type="date"
                       value={informeFechaFin}
                       onChange={e => setInformeFechaFin(e.target.value)}
-                      className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6d9b7d]/50"
+                      className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]/50"
                     />
                   </div>
                 </>
@@ -1211,7 +1210,7 @@ export default function InventarioUbicacion() {
                     <select
                       value={informeCategoria}
                       onChange={e => setInformeCategoria(e.target.value)}
-                      className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6d9b7d]/50"
+                      className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]/50"
                     >
                       <option value="">Seleccionar…</option>
                       {categorias.map(c => (
@@ -1227,7 +1226,7 @@ export default function InventarioUbicacion() {
                       type="date"
                       value={informeFechaInicio}
                       onChange={e => setInformeFechaInicio(e.target.value)}
-                      className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6d9b7d]/50"
+                      className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]/50"
                     />
                   </div>
                   <div>
@@ -1238,7 +1237,7 @@ export default function InventarioUbicacion() {
                       type="date"
                       value={informeFechaFin}
                       onChange={e => setInformeFechaFin(e.target.value)}
-                      className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6d9b7d]/50"
+                      className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]/50"
                     />
                   </div>
                 </>
@@ -1258,7 +1257,7 @@ export default function InventarioUbicacion() {
                       <select
                         value={informeMes}
                         onChange={e => setInformeMes(Number(e.target.value))}
-                        className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6d9b7d]/50"
+                        className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]/50"
                       >
                         {MESES_ES.map((m, i) => (
                           <option key={i + 1} value={i + 1}>{m}</option>
@@ -1275,7 +1274,7 @@ export default function InventarioUbicacion() {
                         max="2030"
                         value={informeAnio}
                         onChange={e => setInformeAnio(Number(e.target.value))}
-                        className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6d9b7d]/50"
+                        className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]/50"
                       />
                     </div>
                   </div>
@@ -1297,11 +1296,11 @@ export default function InventarioUbicacion() {
               <button
                 onClick={generarPDF}
                 disabled={generandoPDF || generandoExcel || (informeTipo === 'categoria' && !informeCategoria)}
-                className="flex-1 py-2.5 rounded-lg bg-[#6d9b7d]/20 border border-[#6d9b7d]/40 hover:bg-[#6d9b7d]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-black uppercase tracking-widest text-[#6d9b7d] flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 rounded-lg bg-[#38bdf8]/20 border border-[#38bdf8]/40 hover:bg-[#38bdf8]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-black uppercase tracking-widest text-[#38bdf8] flex items-center justify-center gap-2"
               >
                 {generandoPDF ? (
                   <>
-                    <div className="w-3.5 h-3.5 border-2 border-[#6d9b7d] border-t-transparent rounded-full animate-spin" />
+                    <div className="w-3.5 h-3.5 border-2 border-[#38bdf8] border-t-transparent rounded-full animate-spin" />
                     PDF...
                   </>
                 ) : (
@@ -1314,7 +1313,7 @@ export default function InventarioUbicacion() {
               <button
                 onClick={generarExcel}
                 disabled={generandoPDF || generandoExcel || (informeTipo === 'categoria' && !informeCategoria)}
-                className="flex-1 py-2.5 rounded-lg bg-slate-800 border border-white/10 hover:border-[#6d9b7d]/30 hover:text-[#6d9b7d] disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-black uppercase tracking-widest text-slate-300 flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 rounded-lg bg-slate-800 border border-white/10 hover:border-[#38bdf8]/30 hover:text-[#38bdf8] disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-black uppercase tracking-widest text-slate-300 flex items-center justify-center gap-2"
               >
                 {generandoExcel ? (
                   <>
@@ -1343,14 +1342,13 @@ export default function InventarioUbicacion() {
             {/* Modal header */}
             <div className="flex items-start justify-between px-5 py-4 border-b border-white/10 shrink-0">
               <div>
-                <p className="text-[11px] font-black text-[#6d9b7d] uppercase tracking-[0.3em]">
-                  {editRegistro ? 'Editar registro' : 'Añadir registro'}
+                <p className="text-[11px] font-black text-[#38bdf8] uppercase tracking-[0.3em]">
+                  Añadir Registro
                 </p>
                 <p className="text-[10px] text-slate-500 mt-0.5">{activeCat.nombre}</p>
               </div>
               <button
-                type="button"
-                onClick={() => { setShowModal(false); setEditRegistro(null) }}
+                onClick={() => setShowModal(false)}
                 className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center hover:bg-slate-700 transition-colors ml-4 shrink-0"
               >
                 <X className="w-4 h-4 text-slate-400" />
@@ -1380,7 +1378,7 @@ export default function InventarioUbicacion() {
                       setPrecioUnitario('')
                     }
                   }}
-                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6d9b7d]/50"
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]/50"
                 >
                   <option value="">Sin especificar</option>
                   {productos.map(p => (
@@ -1392,7 +1390,7 @@ export default function InventarioUbicacion() {
 
               {/* Campos nuevo producto */}
               {productoId === 'nuevo' && (
-                <div className="pl-3 border-l-2 border-[#6d9b7d]/30 space-y-3">
+                <div className="pl-3 border-l-2 border-[#38bdf8]/30 space-y-3">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
                       Nombre del producto <span className="text-red-400">*</span>
@@ -1402,7 +1400,7 @@ export default function InventarioUbicacion() {
                       value={productoNombre}
                       onChange={e => setProductoNombre(e.target.value)}
                       required
-                      className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6d9b7d]/50"
+                      className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#38bdf8]/50"
                       placeholder="Ej: Glifosato 36%, THIOVIT..."
                     />
                   </div>
@@ -1422,7 +1420,7 @@ export default function InventarioUbicacion() {
                     value={cantidad}
                     onChange={e => setCantidad(e.target.value)}
                     required
-                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6d9b7d]/50"
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#38bdf8]/50"
                     placeholder="0"
                   />
                 </div>
@@ -1433,7 +1431,7 @@ export default function InventarioUbicacion() {
                   <select
                     value={unidad}
                     onChange={e => setUnidad(e.target.value)}
-                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6d9b7d]/50"
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]/50"
                   >
                     {UNIDADES.map(u => (
                       <option key={u} value={u}>{u}</option>
@@ -1454,7 +1452,7 @@ export default function InventarioUbicacion() {
                     min="0"
                     value={precioUnitario}
                     onChange={e => setPrecioUnitario(e.target.value)}
-                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6d9b7d]/50"
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#38bdf8]/50"
                     placeholder="0.00"
                   />
                 </div>
@@ -1462,7 +1460,7 @@ export default function InventarioUbicacion() {
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
                     Importe total
                   </label>
-                  <div className="bg-slate-800/40 border border-white/5 rounded-lg px-3 py-2 text-sm font-black text-[#6d9b7d]">
+                  <div className="bg-slate-800/40 border border-white/5 rounded-lg px-3 py-2 text-sm font-black text-[#38bdf8]">
                     {importe > 0
                       ? importe.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
                       : '— €'}
@@ -1479,7 +1477,7 @@ export default function InventarioUbicacion() {
                   type="text"
                   value={descripcion}
                   onChange={e => setDescripcion(e.target.value)}
-                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6d9b7d]/50"
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#38bdf8]/50"
                   placeholder="Ej: Herbicida Glifosato 36%, lote 2024..."
                 />
               </div>
@@ -1493,7 +1491,7 @@ export default function InventarioUbicacion() {
                   value={notas}
                   onChange={e => setNotas(e.target.value)}
                   rows={2}
-                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6d9b7d]/50 resize-none"
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#38bdf8]/50 resize-none"
                   placeholder="Observaciones opcionales..."
                 />
               </div>
@@ -1515,7 +1513,7 @@ export default function InventarioUbicacion() {
                     </button>
                   </div>
                 ) : (
-                  <label className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-dashed border-white/20 cursor-pointer hover:border-[#6d9b7d]/40 transition-colors">
+                  <label className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-dashed border-white/20 cursor-pointer hover:border-[#38bdf8]/40 transition-colors">
                     <Plus className="w-4 h-4 text-slate-500" />
                     <span className="text-[11px] text-slate-500">Seleccionar imagen</span>
                     <input
@@ -1532,7 +1530,7 @@ export default function InventarioUbicacion() {
               {isFito && (
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-                    Foto lote / código de barras <span className="text-amber-500/70">(recomendada)</span>
+                    Foto lote / código de barras <span className="text-red-400">*</span>
                   </label>
                   {preview2 ? (
                     <div className="relative rounded-lg overflow-hidden border border-white/10">
@@ -1573,7 +1571,7 @@ export default function InventarioUbicacion() {
                   type="text"
                   value={responsable}
                   onChange={e => setResponsable(e.target.value)}
-                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6d9b7d]/50"
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#38bdf8]/50"
                   placeholder="Nombre de quien registra..."
                 />
               </div>
@@ -1590,9 +1588,9 @@ export default function InventarioUbicacion() {
               <button
                 type="submit"
                 disabled={submitting || !cantidad}
-                className="w-full py-2.5 rounded-lg bg-[#6d9b7d]/20 border border-[#6d9b7d]/40 hover:bg-[#6d9b7d]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-black uppercase tracking-widest text-[#6d9b7d]"
+                className="w-full py-2.5 rounded-lg bg-[#38bdf8]/20 border border-[#38bdf8]/40 hover:bg-[#38bdf8]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-black uppercase tracking-widest text-[#38bdf8]"
               >
-                {submitting ? 'Guardando...' : editRegistro ? 'Guardar cambios' : 'Guardar registro'}
+                {submitting ? 'Guardando...' : 'Guardar registro'}
               </button>
 
             </form>
@@ -1609,7 +1607,7 @@ export default function InventarioUbicacion() {
             {/* Header */}
             <div className="flex items-start justify-between px-5 py-4 border-b border-white/10 shrink-0">
               <div>
-                <p className="text-[11px] font-black text-[#6d9b7d] uppercase tracking-[0.3em]">
+                <p className="text-[11px] font-black text-[#38bdf8] uppercase tracking-[0.3em]">
                   Mover Producto
                 </p>
                 <p className="text-[10px] text-slate-500 mt-0.5">{activeCat.nombre}</p>
@@ -1633,7 +1631,7 @@ export default function InventarioUbicacion() {
                 <select
                   value={moverProductoId}
                   onChange={e => setMoverProductoId(e.target.value)}
-                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6d9b7d]/50"
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]/50"
                 >
                   <option value="">Sin especificar</option>
                   {productos.map(p => (
@@ -1655,7 +1653,7 @@ export default function InventarioUbicacion() {
                     value={moverCantidad}
                     onChange={e => setMoverCantidad(e.target.value)}
                     required
-                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6d9b7d]/50"
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#38bdf8]/50"
                     placeholder="0"
                   />
                 </div>
@@ -1666,7 +1664,7 @@ export default function InventarioUbicacion() {
                   <select
                     value={moverUnidad}
                     onChange={e => setMoverUnidad(e.target.value)}
-                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6d9b7d]/50"
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]/50"
                   >
                     {UNIDADES.map(u => (
                       <option key={u} value={u}>{u}</option>
@@ -1684,7 +1682,7 @@ export default function InventarioUbicacion() {
                   value={moverDestinoId}
                   onChange={e => setMoverDestinoId(e.target.value)}
                   required
-                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#6d9b7d]/50"
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#38bdf8]/50"
                 >
                   <option value="">Seleccionar destino…</option>
                   {ubicaciones
@@ -1704,7 +1702,7 @@ export default function InventarioUbicacion() {
                   type="text"
                   value={moverResponsable}
                   onChange={e => setMoverResponsable(e.target.value)}
-                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6d9b7d]/50"
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#38bdf8]/50"
                   placeholder="Nombre de quien mueve el producto..."
                 />
               </div>
@@ -1718,7 +1716,7 @@ export default function InventarioUbicacion() {
                   value={moverNotas}
                   onChange={e => setMoverNotas(e.target.value)}
                   rows={2}
-                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#6d9b7d]/50 resize-none"
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#38bdf8]/50 resize-none"
                   placeholder="Motivo del movimiento, observaciones..."
                 />
               </div>
@@ -1735,11 +1733,11 @@ export default function InventarioUbicacion() {
               <button
                 type="submit"
                 disabled={submittingMover || !moverCantidad || !moverDestinoId}
-                className="w-full py-2.5 rounded-lg bg-[#6d9b7d]/20 border border-[#6d9b7d]/40 hover:bg-[#6d9b7d]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-black uppercase tracking-widest text-[#6d9b7d] flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-lg bg-[#38bdf8]/20 border border-[#38bdf8]/40 hover:bg-[#38bdf8]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-[11px] font-black uppercase tracking-widest text-[#38bdf8] flex items-center justify-center gap-2"
               >
                 {submittingMover ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-[#6d9b7d] border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-[#38bdf8] border-t-transparent rounded-full animate-spin" />
                     Registrando...
                   </>
                 ) : (

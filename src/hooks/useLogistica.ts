@@ -1,12 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
-import type { Database, TablesInsert, TablesUpdate } from '../integrations/supabase/types';
-import { LOGISTICA_MANTENIMIENTO_SELECT } from '@/utils/logisticaMantenimiento';
-import { logLiaEvento } from '@/utils/liaLogger';
-import { useCreatedBy } from './useCreatedBy';
-import { toast } from '@/hooks/use-toast';
-
-type LogisticaMantenimientoRow = Database['public']['Tables']['logistica_mantenimiento']['Row'];
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -72,13 +65,19 @@ export interface Viaje {
   created_by:            string | null;
 }
 
-/** Fila de BD + joins opcionales para listados (sin lógica por `vehiculo_tipo`). */
-export type MantenimientoCamion = LogisticaMantenimientoRow & {
-  camiones?: { matricula: string | null } | null;
-  vehiculos_empresa?: { matricula: string | null } | null;
-};
-
-export type MantenimientoCamionInsert = TablesInsert<'logistica_mantenimiento'>;
+export interface MantenimientoCamion {
+  id:          string;
+  camion_id:   string | null;
+  tipo:        string;
+  descripcion: string | null;
+  fecha:       string;
+  coste_euros: number | null;
+  proveedor:   string | null;
+  foto_url:    string | null;
+  foto_url_2:  string | null;
+  created_at:  string;
+  created_by:  string | null;
+}
 
 export interface Combustible {
   id:            string;
@@ -131,7 +130,6 @@ export function useCamiones() {
 // ── useAddCamion ──────────────────────────────────────────────
 
 export function useAddCamion() {
-  const createdBy = useCreatedBy();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Omit<Camion, 'id' | 'codigo_interno'> & { ubicacion_id?: string | null }) => {
@@ -154,7 +152,7 @@ export function useAddCamion() {
 
       const { data, error } = await supabase
         .from('camiones')
-        .insert([{ ...camionPayload, codigo_interno, created_by: createdBy }])
+        .insert([{ ...camionPayload, codigo_interno }])
         .select()
         .single();
       if (error) throw error;
@@ -175,10 +173,6 @@ export function useAddCamion() {
       qc.invalidateQueries({ queryKey: ['camiones'] });
       qc.invalidateQueries({ queryKey: ['logistica_inventario_sync'] });
     },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -195,10 +189,6 @@ export function useUpdateCamion() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['camiones'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -214,10 +204,6 @@ export function useDeleteCamion() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['camiones'] });
       qc.invalidateQueries({ queryKey: ['logistica_inventario_sync'] });
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 }
@@ -242,7 +228,6 @@ export function useVehiculosEmpresa() {
 // ── useAddVehiculoEmpresa ─────────────────────────────────────
 
 export function useAddVehiculoEmpresa() {
-  const createdBy = useCreatedBy();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Omit<VehiculoEmpresa, 'id' | 'created_at' | 'codigo_interno'> & { ubicacion_id?: string | null }) => {
@@ -264,7 +249,7 @@ export function useAddVehiculoEmpresa() {
 
       const { data, error } = await supabase
         .from('vehiculos_empresa')
-        .insert([{ ...vehiculoPayload, codigo_interno, created_by: createdBy }])
+        .insert([{ ...vehiculoPayload, codigo_interno }])
         .select()
         .single();
       if (error) throw error;
@@ -284,10 +269,6 @@ export function useAddVehiculoEmpresa() {
       qc.invalidateQueries({ queryKey: ['vehiculos_empresa'] });
       qc.invalidateQueries({ queryKey: ['logistica_inventario_sync'] });
     },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -304,10 +285,6 @@ export function useUpdateVehiculoEmpresa() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['vehiculos_empresa'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -323,10 +300,6 @@ export function useDeleteVehiculoEmpresa() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vehiculos_empresa'] });
       qc.invalidateQueries({ queryKey: ['logistica_inventario_sync'] });
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 }
@@ -353,35 +326,18 @@ export function useViajes(personalId?: string) {
 // ── useAddViaje ───────────────────────────────────────────────
 
 export function useAddViaje() {
-  const createdBy = useCreatedBy();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Omit<Viaje, 'id' | 'created_at'>) => {
       const { data, error } = await supabase
         .from('logistica_viajes')
-        .insert([{ ...payload, created_by: createdBy }])
+        .insert([payload])
         .select()
         .single();
       if (error) throw error;
       return data;
     },
-    onSuccess: (data, payload) => {
-      try {
-        logLiaEvento('logistica', 'viaje_registrado', {
-          finca: payload.finca ?? null,
-          destino: payload.destino ?? null,
-          km_recorridos: payload.km_recorridos ?? null,
-          gasto_gasolina_litros: payload.gasto_gasolina_litros ?? null,
-        });
-      } catch (e) {
-        // silent
-      }
-      qc.invalidateQueries({ queryKey: ['logistica_viajes'] });
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['logistica_viajes'] }),
   });
 }
 
@@ -398,10 +354,6 @@ export function useUpdateViaje() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['logistica_viajes'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -415,10 +367,6 @@ export function useDeleteViaje() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['logistica_viajes'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -430,11 +378,9 @@ export function useMantenimientoCamion(camionId?: string) {
     queryFn: async () => {
       let q = supabase
         .from('logistica_mantenimiento')
-        .select(LOGISTICA_MANTENIMIENTO_SELECT)
+        .select('*')
         .order('fecha', { ascending: false });
-      if (camionId) {
-        q = q.or(`camion_id.eq.${camionId},vehiculo_empresa_id.eq.${camionId}`);
-      }
+      if (camionId) q = q.eq('camion_id', camionId);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as MantenimientoCamion[];
@@ -446,23 +392,18 @@ export function useMantenimientoCamion(camionId?: string) {
 // ── useAddMantenimientoCamion ─────────────────────────────────
 
 export function useAddMantenimientoCamion() {
-  const createdBy = useCreatedBy();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: MantenimientoCamionInsert) => {
+    mutationFn: async (payload: Omit<MantenimientoCamion, 'id' | 'created_at'>) => {
       const { data, error } = await supabase
         .from('logistica_mantenimiento')
-        .insert([{ ...payload, created_by: payload.created_by ?? createdBy }])
+        .insert([payload])
         .select()
         .single();
       if (error) throw error;
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['logistica_mantenimiento'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -471,7 +412,7 @@ export function useAddMantenimientoCamion() {
 export function useUpdateMantenimientoCamion() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...patch }: TablesUpdate<'logistica_mantenimiento'> & { id: string }) => {
+    mutationFn: async ({ id, ...patch }: Partial<MantenimientoCamion> & { id: string }) => {
       const { error } = await supabase
         .from('logistica_mantenimiento')
         .update(patch)
@@ -479,10 +420,6 @@ export function useUpdateMantenimientoCamion() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['logistica_mantenimiento'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -496,10 +433,6 @@ export function useDeleteMantenimiento() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['logistica_mantenimiento'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -526,23 +459,18 @@ export function useCombustible(vehiculoId?: string, vehiculoTipo?: string) {
 // ── useAddCombustible ─────────────────────────────────────────
 
 export function useAddCombustible() {
-  const createdBy = useCreatedBy();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Omit<Combustible, 'id' | 'created_at'>) => {
       const { data, error } = await supabase
         .from('logistica_combustible')
-        .insert([{ ...payload, created_by: createdBy }])
+        .insert([payload])
         .select()
         .single();
       if (error) throw error;
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['logistica_combustible'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -559,10 +487,6 @@ export function useUpdateCombustible() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['logistica_combustible'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -576,10 +500,6 @@ export function useDeleteCombustible() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['logistica_combustible'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -613,10 +533,6 @@ export function useAddLogisticaSync() {
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['logistica_inventario_sync'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -652,10 +568,6 @@ export function useAddTipoTrabajoLogistica() {
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['catalogo_tipos_trabajo', 'logistica'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 

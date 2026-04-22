@@ -8,11 +8,6 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
 import { FINCAS_NOMBRES as FINCAS } from '@/constants/farms'
-import { PDFExportModal, type PDFExportParams } from '@/components/base'
-import { generarPDFCorporativoBase, pdfCorporateSection, pdfCorporateTable } from '@/utils/pdfUtils'
-import { toast } from '@/hooks/use-toast'
-import { horasEntreMarcasISO } from '@/utils/horasTrabajo'
-import type { Tables } from '@/integrations/supabase/types'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -47,9 +42,8 @@ function useHistoricos(fechaDesde: string, fechaHasta: string) {
           .order('fecha', { ascending: false })
           .limit(200),
         supabase
-          .from('trabajos_registro')
-          .select('id, fecha, hora_inicio, hora_fin, tipo_trabajo, finca, nombres_operarios, tractor_id')
-          .not('tractor_id', 'is', null)
+          .from('maquinaria_uso')
+          .select('id, fecha, hora_inicio, tipo_trabajo, finca, tractorista, horas_trabajadas, tractor_id')
           .gte('fecha', fechaDesde)
           .lte('fecha', fechaHasta)
           .order('fecha', { ascending: false })
@@ -103,20 +97,15 @@ function useHistoricos(fechaDesde: string, fechaHasta: string) {
       }
 
       // Maquinaria uso
-      for (const u of (usoRes.data ?? []) as Pick<
-        Tables<'trabajos_registro'>,
-        'id' | 'fecha' | 'hora_inicio' | 'hora_fin' | 'tipo_trabajo' | 'finca' | 'nombres_operarios' | 'tractor_id'
-      >[]) {
-        const horasMaq = horasEntreMarcasISO(u.hora_inicio, u.hora_fin)
-        const horasLbl = horasMaq != null && horasMaq > 0 ? `${horasMaq}h` : null
+      for (const u of usoRes.data ?? []) {
         entradas.push({
           id:        `maq-${u.id}`,
           modulo:    'maquinaria',
-          fecha:     u.fecha ?? '',
+          fecha:     u.fecha,
           hora:      u.hora_inicio ? u.hora_inicio.slice(11, 16) : undefined,
           tipo:      'Uso maquinaria',
           titulo:    u.tipo_trabajo ?? 'Uso',
-          subtitulo: [u.nombres_operarios, horasLbl].filter(Boolean).join(' · ') || undefined,
+          subtitulo: [u.tractorista, u.horas_trabajadas ? `${u.horas_trabajadas}h` : null].filter(Boolean).join(' · ') || undefined,
           finca:     u.finca ?? undefined,
           url:       '/maquinaria',
         })
@@ -198,7 +187,7 @@ function useHistoricos(fechaDesde: string, fechaHasta: string) {
 // ── Configuración de módulos ──────────────────────────────────────────────────
 
 const MODULO_CONFIG: Record<ModuloFiltro, { label: string; color: string; icon: React.ElementType }> = {
-  todos:     { label: 'Todos',      color: '#6d9b7d',  icon: History   },
+  todos:     { label: 'Todos',      color: '#38bdf8',  icon: History   },
   campo:     { label: 'Campo',      color: '#4ade80',  icon: Leaf      },
   trabajos:  { label: 'Trabajos',   color: '#f59e0b',  icon: Wrench    },
   maquinaria:{ label: 'Maquinaria', color: '#fb923c',  icon: Tractor   },
@@ -220,78 +209,8 @@ export default function Historicos() {
   const [finca,    setFinca]   = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [showFiltros, setShowFiltros] = useState(false)
-  const [pdfOpen, setPdfOpen] = useState(false)
 
   const { data: entradas = [], isLoading } = useHistoricos(desde, hasta)
-
-  const handleExportPDF = async ({ desde: d1, hasta: d2, filtros }: PDFExportParams) => {
-    // Usar los filtros actuales de la página o solo fechas
-    const entradasPDF = entradas.filter(e => e.fecha >= d1 && e.fecha <= d2)
-    const filtered = filtros.respetar_filtros_actuales
-      ? entradasPDF.filter(e => {
-          if (modulo !== 'todos' && e.modulo !== modulo) return false
-          if (finca && e.finca !== finca) return false
-          if (busqueda.trim()) {
-            const q = busqueda.toLowerCase()
-            if (
-              !e.titulo.toLowerCase().includes(q) &&
-              !(e.subtitulo ?? '').toLowerCase().includes(q) &&
-              !e.tipo.toLowerCase().includes(q)
-            ) return false
-          }
-          return true
-        })
-      : entradasPDF
-
-    const rows = filtered.map(e => [
-      e.fecha,
-      e.hora ?? '—',
-      e.modulo,
-      e.tipo,
-      e.titulo,
-      e.finca ?? '—',
-    ])
-
-    try {
-      await generarPDFCorporativoBase({
-        titulo: 'Históricos del Sistema',
-        subtitulo: `Búsqueda global · ${d1} → ${d2}`,
-        fecha: new Date(),
-        filename: `historicos_${d1}_${d2}.pdf`,
-        bloques: [
-          (ctx) => {
-            pdfCorporateSection(ctx, 'Resumen')
-            ctx.writeLine('Total registros', String(filtered.length))
-            ctx.writeLine('Rango', `${d1} → ${d2}`)
-            if (filtros.respetar_filtros_actuales) {
-              if (modulo !== 'todos') ctx.writeLine('Módulo', modulo)
-              if (finca) ctx.writeLine('Finca', finca)
-              if (busqueda) ctx.writeLine('Búsqueda', busqueda)
-            }
-            ctx.y += 4
-          },
-          (ctx) => {
-            if (rows.length === 0) return
-            pdfCorporateSection(ctx, 'Registros')
-            pdfCorporateTable(
-              ctx,
-              ['Fecha', 'Hora', 'Módulo', 'Tipo', 'Título', 'Finca'],
-              [20, 14, 22, 28, 60, 38],
-              rows,
-            )
-          },
-        ],
-      })
-      toast({ title: 'PDF generado', description: 'Históricos descargados.' })
-    } catch (e) {
-      console.error('PDF históricos:', e)
-      toast({
-        title: 'Error al generar el PDF',
-        description: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
-        variant: 'destructive',
-      })
-    }
-  }
 
   const filtradas = useMemo(() => {
     let res = entradas
@@ -310,7 +229,7 @@ export default function Historicos() {
   }, [entradas, modulo, finca, busqueda])
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="min-h-screen bg-[#020617] text-white flex flex-col">
 
       {/* CABECERA */}
       <header className="bg-slate-900/80 border-b border-white/10 pl-14 pr-4 py-2.5 flex items-center gap-3 flex-wrap">
@@ -322,37 +241,16 @@ export default function Historicos() {
           <span className="text-[10px] font-black uppercase tracking-widest">Volver</span>
         </button>
         <div className="w-px h-4 bg-white/10" />
-        <History className="w-4 h-4 text-[#6d9b7d]" />
-        <span className="text-[10px] font-black uppercase tracking-widest text-[#6d9b7d]">Históricos</span>
+        <History className="w-4 h-4 text-[#38bdf8]" />
+        <span className="text-[10px] font-black uppercase tracking-widest text-[#38bdf8]">Históricos</span>
 
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => setPdfOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-500/20 border border-slate-500/40 text-slate-300 hover:bg-slate-500/30 transition-colors text-[9px] font-black uppercase tracking-widest"
-          >
-            <FileText className="w-3 h-3" />
-            <span className="hidden sm:inline">PDF</span>
-          </button>
-          <button
-            onClick={() => setShowFiltros(f => !f)}
-            className="flex items-center gap-1 text-[9px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors"
-          >
-            Filtros <ChevronDown className={`w-3 h-3 transition-transform ${showFiltros ? 'rotate-180' : ''}`} />
-          </button>
-        </div>
+        <button
+          onClick={() => setShowFiltros(f => !f)}
+          className="ml-auto flex items-center gap-1 text-[9px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors"
+        >
+          Filtros <ChevronDown className={`w-3 h-3 transition-transform ${showFiltros ? 'rotate-180' : ''}`} />
+        </button>
       </header>
-
-      <PDFExportModal
-        open={pdfOpen}
-        onClose={() => setPdfOpen(false)}
-        title="Históricos del Sistema"
-        subtitle="Búsqueda global cronológica"
-        accentColor="#94a3b8"
-        filtros={[
-          { key: 'respetar_filtros_actuales', label: 'Aplicar filtros activos de la página', default: true },
-        ]}
-        onExport={handleExportPDF}
-      />
 
       {/* FILTROS */}
       <div className={`bg-slate-900/60 border-b border-white/10 overflow-hidden transition-all ${showFiltros ? 'max-h-[300px]' : 'max-h-0'}`}>
@@ -362,12 +260,12 @@ export default function Historicos() {
             <div>
               <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Desde</label>
               <input type="date" value={desde} onChange={e => setDesde(e.target.value)}
-                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#6d9b7d]/50 outline-none" />
+                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#38bdf8]/50 outline-none" />
             </div>
             <div>
               <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Hasta</label>
               <input type="date" value={hasta} onChange={e => setHasta(e.target.value)}
-                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#6d9b7d]/50 outline-none" />
+                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#38bdf8]/50 outline-none" />
             </div>
           </div>
 
@@ -379,7 +277,7 @@ export default function Historicos() {
                 onClick={() => setModulo(key)}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-colors ${
                   modulo === key
-                    ? 'border-[#6d9b7d]/50 bg-[#6d9b7d]/10 text-[#6d9b7d]'
+                    ? 'border-[#38bdf8]/50 bg-[#38bdf8]/10 text-[#38bdf8]'
                     : 'border-white/10 text-slate-500 hover:border-white/20 hover:text-slate-300'
                 }`}
               >
@@ -391,7 +289,7 @@ export default function Historicos() {
 
           {/* Finca */}
           <select value={finca} onChange={e => setFinca(e.target.value)}
-            className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#6d9b7d]/50 outline-none">
+            className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#38bdf8]/50 outline-none">
             <option value="">— Todas las fincas —</option>
             {FINCAS.map(f => <option key={f} value={f}>{f}</option>)}
           </select>
@@ -407,7 +305,7 @@ export default function Historicos() {
             placeholder="Buscar por tipo, finca, operario..."
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            className="w-full bg-slate-800 border border-white/10 rounded-lg pl-9 pr-9 py-2 text-sm text-white placeholder-slate-600 focus:border-[#6d9b7d]/50 outline-none"
+            className="w-full bg-slate-800 border border-white/10 rounded-lg pl-9 pr-9 py-2 text-sm text-white placeholder-slate-600 focus:border-[#38bdf8]/50 outline-none"
           />
           {busqueda && (
             <button onClick={() => setBusqueda('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
@@ -428,7 +326,7 @@ export default function Historicos() {
       <main className="flex-1 overflow-y-auto px-4 pb-4 max-w-3xl w-full mx-auto">
         {isLoading && (
           <div className="flex items-center justify-center py-16">
-            <span className="w-5 h-5 border-2 border-white/10 border-t-[#6d9b7d] rounded-full animate-spin" />
+            <span className="w-5 h-5 border-2 border-white/10 border-t-[#38bdf8] rounded-full animate-spin" />
           </div>
         )}
 

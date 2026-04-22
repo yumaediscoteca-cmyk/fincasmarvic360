@@ -1,8 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
-import { logLiaEvento } from '@/utils/liaLogger';
-import { useCreatedBy } from './useCreatedBy';
-import { toast } from '@/hooks/use-toast';
 
 // ── Tipos locales ────────────────────────────────────────────
 export interface Tractor {
@@ -134,7 +131,6 @@ export function useAperosEnInventario() {
 
 // ── useAddTractor ─────────────────────────────────────────────
 export function useAddTractor() {
-  const createdBy = useCreatedBy();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Omit<Tractor, 'id' | 'created_at'> & { ubicacion_id?: string | null }) => {
@@ -148,7 +144,7 @@ export function useAddTractor() {
 
       const { data, error } = await supabase
         .from('maquinaria_tractores')
-        .insert([{ ...rest, codigo_interno, created_by: createdBy }])
+        .insert([{ ...rest, codigo_interno }])
         .select()
         .single();
       if (error) throw error;
@@ -169,10 +165,6 @@ export function useAddTractor() {
       qc.invalidateQueries({ queryKey: ['v_tractores_en_inventario'] });
       qc.invalidateQueries({ queryKey: ['maquinaria_inventario_sync'] });
     },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -187,10 +179,6 @@ export function useDeleteTractor() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['maquinaria_tractores'] });
       qc.invalidateQueries({ queryKey: ['maquinaria_kpis'] });
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 }
@@ -209,10 +197,6 @@ export function useUpdateTractor() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['maquinaria_tractores'] });
       qc.invalidateQueries({ queryKey: ['v_tractores_en_inventario'] });
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 }
@@ -237,7 +221,6 @@ export function useAperos(tractorId?: string) {
 
 // ── useAddApero ───────────────────────────────────────────────
 export function useAddApero() {
-  const createdBy = useCreatedBy();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Omit<Apero, 'id' | 'created_at'> & { ubicacion_id?: string | null }) => {
@@ -251,7 +234,7 @@ export function useAddApero() {
 
       const { data, error } = await supabase
         .from('maquinaria_aperos')
-        .insert([{ ...rest, codigo_interno, created_by: createdBy }])
+        .insert([{ ...rest, codigo_interno }])
         .select()
         .single();
       if (error) throw error;
@@ -272,45 +255,6 @@ export function useAddApero() {
       qc.invalidateQueries({ queryKey: ['v_maquinaria_aperos_en_inventario'] });
       qc.invalidateQueries({ queryKey: ['maquinaria_inventario_sync'] });
     },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
-  });
-}
-
-// ── useUpdateApero ──────────────────────────────────────────────
-export function useUpdateApero() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      id,
-      ubicacion_id,
-      ...patch
-    }: Partial<Omit<Apero, 'id' | 'created_at'>> & { id: string; ubicacion_id?: string | null }) => {
-      const { error } = await supabase.from('maquinaria_aperos').update(patch).eq('id', id);
-      if (error) throw error;
-
-      await supabase.from('maquinaria_inventario_sync').delete().eq('tipo', 'apero').eq('maquinaria_id', id);
-      if (ubicacion_id) {
-        const { error: syncErr } = await supabase.from('maquinaria_inventario_sync').insert({
-          tipo: 'apero',
-          maquinaria_id: id,
-          ubicacion_id,
-        });
-        if (syncErr) throw syncErr;
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['maquinaria_aperos'] });
-      qc.invalidateQueries({ queryKey: ['v_maquinaria_aperos_en_inventario'] });
-      qc.invalidateQueries({ queryKey: ['maquinaria_inventario_sync'] });
-      qc.invalidateQueries({ queryKey: ['maquinaria_kpis'] });
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -325,10 +269,6 @@ export function useDeleteApero() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['maquinaria_aperos'] });
       qc.invalidateQueries({ queryKey: ['maquinaria_kpis'] });
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 }
@@ -353,30 +293,19 @@ export function useUsosMaquinaria(tractorId?: string) {
 
 // ── useAddUsoMaquinaria ───────────────────────────────────────
 export function useAddUsoMaquinaria() {
-  const createdBy = useCreatedBy();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Omit<UsoMaquinaria, 'id' | 'created_at'>) => {
       const { data, error } = await supabase
         .from('maquinaria_uso')
-        .insert([{ ...payload, created_by: createdBy }])
+        .insert([payload])
         .select()
         .single();
       if (error) throw error;
       return data;
     },
-    onSuccess: (data, payload) => {
-      logLiaEvento('maquinaria', 'uso_registrado', {
-        tipo_trabajo: payload.tipo_trabajo,
-        finca: payload.finca,
-        horas_trabajadas: payload.horas_trabajadas,
-        gasolina_litros: payload.gasolina_litros,
-      });
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['maquinaria_uso'] });
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 }
@@ -401,23 +330,18 @@ export function useMantenimientoTractor(tractorId?: string) {
 
 // ── useAddMantenimientoTractor ────────────────────────────────
 export function useAddMantenimientoTractor() {
-  const createdBy = useCreatedBy();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Omit<MantenimientoTractor, 'id' | 'created_at'>) => {
       const { data, error } = await supabase
         .from('maquinaria_mantenimiento')
-        .insert([{ ...payload, created_by: createdBy }])
+        .insert([payload])
         .select()
         .single();
       if (error) throw error;
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['maquinaria_mantenimiento'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -452,10 +376,6 @@ export function useAddTipoTrabajoMaquinaria() {
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['catalogo_tipos_trabajo', 'maquinaria'] }),
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   });
 }
 
@@ -490,10 +410,6 @@ export function useAddSyncMaquinaria() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['maquinaria_inventario_sync'] });
       qc.invalidateQueries({ queryKey: ['inventario_ubicacion_activo'] });
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   });
 }

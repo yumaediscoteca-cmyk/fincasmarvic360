@@ -1,10 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
 import type { TablesInsert } from '@/integrations/supabase/types'
-import { logLiaEvento } from '@/utils/liaLogger'
-import { useAuth } from '@/context/AuthContext'
-import { useCreatedBy } from './useCreatedBy'
-import { toast } from '@/hooks/use-toast'
+
 /*
 ================================================
 1. PARTE POR FECHA — consulta el registro cabecera
@@ -37,8 +34,6 @@ export function useEnsureParteHoy() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (hoy: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      const currentUser = user?.email || 'sistema';
       // Intentar obtener el existente primero
       const { data: existing } = await supabase
         .from('partes_diarios')
@@ -49,7 +44,7 @@ export function useEnsureParteHoy() {
       // Crear nuevo
       const { data, error } = await supabase
         .from('partes_diarios')
-        .insert({ fecha: hoy, responsable: currentUser })
+        .insert({ fecha: hoy, responsable: 'JuanPe' })
         .select()
         .single()
       if (error) throw error
@@ -57,10 +52,6 @@ export function useEnsureParteHoy() {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['partes_diarios', data.fecha] })
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   })
 }
@@ -96,30 +87,19 @@ export function useEstadosFinca(parteId: string | null) {
 */
 
 export function useAddEstadoFinca() {
-  const createdBy = useCreatedBy()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (record: TablesInsert<'parte_estado_finca'>) => {
       const { data, error } = await supabase
         .from('parte_estado_finca')
-        .insert({ ...record, created_by: createdBy })
+        .insert(record)
         .select()
         .single()
       if (error) throw error
       return data
     },
-    onSuccess: (data, record) => {
-      logLiaEvento('campo', 'estado_parcela', {
-        finca: record.finca,
-        parcel_id: record.parcel_id,
-        estado: record.estado,
-        num_operarios: record.num_operarios,
-      });
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['parte_estado_finca', data.parte_id] })
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   })
 }
@@ -155,13 +135,12 @@ export function useTrabajos(parteId: string | null) {
 */
 
 export function useAddTrabajo() {
-  const createdBy = useCreatedBy()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (record: TablesInsert<'parte_trabajo'>) => {
       const { data, error } = await supabase
         .from('parte_trabajo')
-        .insert({ ...record, created_by: createdBy })
+        .insert(record)
         .select()
         .single()
       if (error) throw error
@@ -169,10 +148,6 @@ export function useAddTrabajo() {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['parte_trabajo', data.parte_id] })
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   })
 }
@@ -208,13 +183,12 @@ export function usePersonales(parteId: string | null) {
 */
 
 export function useAddPersonal() {
-  const createdBy = useCreatedBy()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (record: TablesInsert<'parte_personal'>) => {
       const { data, error } = await supabase
         .from('parte_personal')
-        .insert({ ...record, created_by: createdBy })
+        .insert(record)
         .select()
         .single()
       if (error) throw error
@@ -222,10 +196,6 @@ export function useAddPersonal() {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['parte_personal', data.parte_id] })
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   })
 }
@@ -261,29 +231,19 @@ export function useResiduos(parteId: string | null) {
 */
 
 export function useAddResiduos() {
-  const createdBy = useCreatedBy()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (record: TablesInsert<'parte_residuos_vegetales'>) => {
       const { data, error } = await supabase
         .from('parte_residuos_vegetales')
-        .insert({ ...record, created_by: createdBy })
+        .insert(record)
         .select()
         .single()
       if (error) throw error
       return data
     },
-    onSuccess: (data, record) => {
-      logLiaEvento('parte_diario', 'residuos_vegetales', {
-        personal_id: record.personal_id,
-        ganadero_id: record.ganadero_id,
-        hora_salida_nave: record.hora_salida_nave,
-      });
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['parte_residuos_vegetales', data.parte_id] })
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   })
 }
@@ -318,10 +278,6 @@ export function useUpdateParteDiario() {
     onSuccess: ({ fecha }) => {
       qc.invalidateQueries({ queryKey: ['partes_diarios', fecha] })
     },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
   })
 }
 
@@ -343,16 +299,13 @@ export function useDeleteEntradaParte() {
       id: string
       parteId: string
     }) => {
-      const { error } = await supabase.from(tabla as 'parte_trabajo').delete().eq('id', id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from(tabla).delete().eq('id', id)
       if (error) throw error
       return { tabla, parteId }
     },
     onSuccess: ({ tabla, parteId }) => {
       qc.invalidateQueries({ queryKey: [tabla, parteId] })
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   })
 }
@@ -390,13 +343,12 @@ export function useGanaderos() {
 }
 
 export function useAddGanadero() {
-  const createdBy = useCreatedBy()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (nombre: string) => {
       const { data, error } = await supabase
         .from('ganaderos')
-        .insert({ nombre, created_by: createdBy })
+        .insert({ nombre })
         .select()
         .single()
       if (error) throw error
@@ -404,10 +356,6 @@ export function useAddGanadero() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ganaderos'] })
-    },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     },
   })
 }
@@ -422,7 +370,8 @@ export function useCierresJornada() {
   return useQuery({
     queryKey: ['cierres_jornada'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from('cierres_jornada')
         .select('*')
         .order('fecha', { ascending: false })
@@ -437,7 +386,8 @@ export function useAddCierreJornada() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (record: import('@/integrations/supabase/types').TablesInsert<'cierres_jornada'>) => {
-      const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from('cierres_jornada')
         .insert(record)
         .select()
@@ -448,21 +398,168 @@ export function useAddCierreJornada() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cierres_jornada'] })
     },
-    onError: (error: Error) => {
-      console.error('[Hook Error]:', error.message);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+  })
+}
+
+/*
+================================================
+15. CERRAR JORNADA — lógica completa de arrastre
+================================================
+*/
+
+export function useCerrarJornada() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ fecha, parteId }: { fecha: string; parteId: string }) => {
+      // 1. Trabajos planificados del día
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: planificados } = await (supabase as any)
+        .from('trabajos_registro')
+        .select('*')
+        .eq('fecha_planificada', fecha)
+        .neq('estado_planificacion', 'cancelado')
+
+      // 2. Trabajos ejecutados hoy en parte_trabajo
+      const { data: parteTrabajo } = await supabase
+        .from('parte_trabajo')
+        .select('tipo_trabajo')
+        .eq('parte_id', parteId)
+
+      const tiposEjecutados = new Set(
+        (parteTrabajo ?? []).map((t: { tipo_trabajo: string }) => t.tipo_trabajo.toLowerCase().trim())
+      )
+
+      let ejecutados = 0
+      let pendientes = 0
+      const arrastrados: typeof planificados = []
+
+      for (const trabajo of planificados ?? []) {
+        const coincide = tiposEjecutados.has((trabajo.tipo_trabajo ?? '').toLowerCase().trim())
+        if (coincide) {
+          // Marcar como ejecutado
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any)
+            .from('trabajos_registro')
+            .update({ estado_planificacion: 'ejecutado' })
+            .eq('id', trabajo.id)
+          ejecutados++
+        } else {
+          // Marcar como pendiente
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any)
+            .from('trabajos_registro')
+            .update({ estado_planificacion: 'pendiente' })
+            .eq('id', trabajo.id)
+          pendientes++
+          arrastrados.push(trabajo)
+        }
+      }
+
+      // 3. Arrastrar pendientes a mañana
+      const manana = new Date(fecha + 'T12:00:00')
+      manana.setDate(manana.getDate() + 1)
+      const fechaManana = manana.toISOString().split('T')[0]
+
+      for (const trabajo of arrastrados) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from('trabajos_registro').insert({
+          tipo_bloque: trabajo.tipo_bloque,
+          tipo_trabajo: trabajo.tipo_trabajo,
+          finca: trabajo.finca ?? null,
+          parcel_id: trabajo.parcel_id ?? null,
+          num_operarios: trabajo.num_operarios ?? null,
+          nombres_operarios: trabajo.nombres_operarios ?? null,
+          hora_inicio: null,
+          hora_fin: null,
+          notas: trabajo.notas ?? null,
+          fecha: fechaManana,
+          fecha_planificada: fechaManana,
+          fecha_original: trabajo.fecha_original ?? trabajo.fecha_planificada ?? trabajo.fecha,
+          estado_planificacion: 'borrador',
+          prioridad: 'alta',
+          tractor_id: trabajo.tractor_id ?? null,
+          apero_id: trabajo.apero_id ?? null,
+        })
+      }
+
+      // 4. Incidencias urgentes no resueltas → tarea nueva para mañana
+      const { data: incidencias } = await supabase
+        .from('trabajos_incidencias')
+        .select('*')
+        .eq('fecha', fecha)
+        .eq('urgente', true)
+        .neq('estado', 'resuelta')
+
+      let incidenciasArrastradas = 0
+      for (const inc of incidencias ?? []) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from('trabajos_registro').insert({
+          tipo_bloque: 'mano_obra_interna',
+          tipo_trabajo: 'Incidencia urgente',
+          finca: inc.finca ?? null,
+          parcel_id: inc.parcel_id ?? null,
+          notas: inc.descripcion ?? null,
+          fecha: fechaManana,
+          fecha_planificada: fechaManana,
+          fecha_original: fecha,
+          estado_planificacion: 'borrador',
+          prioridad: 'alta',
+        })
+        incidenciasArrastradas++
+      }
+
+      // 5. Registrar cierre
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from('cierres_jornada').insert({
+        fecha,
+        parte_diario_id: parteId,
+        trabajos_ejecutados: ejecutados,
+        trabajos_pendientes: pendientes,
+        trabajos_arrastrados: arrastrados.length + incidenciasArrastradas,
+      })
+
+      return { ejecutados, pendientes, arrastrados: arrastrados.length, incidenciasArrastradas }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cierres_jornada'] })
+      qc.invalidateQueries({ queryKey: ['trabajos_registro'] })
+      qc.invalidateQueries({ queryKey: ['trabajos_incidencias'] })
     },
   })
 }
 
 /*
 ================================================
-15. CERRAR JORNADA — ELIMINADO (canónico en useTrabajos.ts)
+16. UPDATE ESTADO TRABAJO — estado_planificacion + prioridad
 ================================================
 */
 
-/*
-================================================
-16. UPDATE ESTADO TRABAJO — ELIMINADO (canónico en useTrabajos.ts)
-================================================
-*/
+export function useUpdateEstadoTrabajo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      estado_planificacion,
+      prioridad,
+    }: {
+      id: string
+      estado_planificacion: string
+      prioridad?: string
+    }) => {
+      const patch: Record<string, string> = { estado_planificacion }
+      if (prioridad) patch.prioridad = prioridad
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('trabajos_registro')
+        .update(patch)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['trabajos_registro'] })
+    },
+  })
+}
